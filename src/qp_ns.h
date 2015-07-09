@@ -1,7 +1,6 @@
 #pragma once
 
 // includes
-#include <iostream>
 // Eigen
 #include <Eigen/Core>
 #include <Eigen/Cholesky>
@@ -17,14 +16,90 @@ namespace Eigen
 namespace qp
 {
 
+enum struct LoggerType { Dummy, Full };
 
-template <typename MatrixType>
+
+template <LoggerType Type>
+struct QPLogger
+{
+  enum IterType { RemoveW, AddW, KeepW };
+
+  void newIteration(int iterate);
+  void setIterType(IterType iType);
+  void setWIter(int iterW);
+  void setWSet(const std::vector<VectorXd::Index>& w);
+  void setX(const VectorXd& x);
+  void setP(const VectorXd& p);
+  void setLambda(const VectorXd& lambda);
+  void clear();
+};
+
+
+template <>
+struct QPLogger<LoggerType::Dummy>
+{
+  enum IterType { RemoveW, AddW, KeepW };
+
+  void newIteration(int iterate) {static_cast<void>(iterate);}
+  void setIterType(IterType iType) {static_cast<void>(iType);}
+  void setWIter(int iterW) {static_cast<void>(iterW);}
+  void setWSet(const std::vector<VectorXd::Index>& w) {static_cast<void>(w);}
+  void setX(const VectorXd& x) {static_cast<void>(x);}
+  void setP(const VectorXd& p) {static_cast<void>(p);}
+  void setLambda(const VectorXd& lambda) {static_cast<void>(lambda);}
+  void clear() {}
+};
+
+
+template <>
+struct QPLogger<LoggerType::Full>
+{
+  enum IterType { RemoveW, AddW, KeepW };
+
+  struct Data
+  {
+    Data(int iter) : iterate{iter}
+    {}
+
+    int iterate;
+    IterType iterType;
+    int iterW;
+    std::vector<VectorXd::Index> wSet;
+    Eigen::VectorXd x, p, lambda;
+  };
+
+  void newIteration(int iterate)
+  { datas.emplace_back(iterate); }
+  void setIterType(IterType iType)
+  { datas.back().iterType = iType; }
+  void setWIter(int iterW)
+  { datas.back().iterW = iterW; }
+  void setWSet(const std::vector<VectorXd::Index>& w)
+  { datas.back().wSet = w; }
+  void setX(const VectorXd& x)
+  { datas.back().x = x; }
+  void setP(const VectorXd& p)
+  { datas.back().p = p; }
+  void setLambda(const VectorXd& lambda)
+  { datas.back().lambda = lambda; }
+  void clear()
+  { datas.clear(); }
+
+  std::vector<Data> datas;
+};
+
+
+
+
+template <typename MatrixType, LoggerType LType=LoggerType::Dummy>
 class QpNullSpace
 {
 public:
   typedef typename MatrixType::Index Index;
   typedef typename MatrixType::Scalar Scalar;
   typedef Matrix<Scalar, Dynamic, 1> XVectorType;
+
+  typedef QPLogger<LType> Logger;
 
 public:
   QpNullSpace();
@@ -39,6 +114,11 @@ public:
   const XVectorType& x() const
   {
     return x_;
+  }
+
+  const Logger& logger() const
+  {
+    return logger_;
   }
 
 private:
@@ -65,17 +145,19 @@ public:
   Matrix<Scalar, Dynamic, Dynamic> Aw_;
   Matrix<Scalar, Dynamic, 1> gw_;
   XVectorType x_, p_;
+
+  Logger logger_;
 };
 
 
 
-template <typename MatrixType>
-inline QpNullSpace<MatrixType>::QpNullSpace()
+template <typename MatrixType, LoggerType LType>
+inline QpNullSpace<MatrixType, LType>::QpNullSpace()
 {}
 
 
-template <typename MatrixType>
-inline QpNullSpace<MatrixType>::QpNullSpace(Index n, Index mEq, Index mIneq)
+template <typename MatrixType, LoggerType LType>
+inline QpNullSpace<MatrixType, LType>::QpNullSpace(Index n, Index mEq, Index mIneq)
   : Aw_{mEq + mIneq, n}
   , gw_{n}
   , x_{n}
@@ -83,13 +165,13 @@ inline QpNullSpace<MatrixType>::QpNullSpace(Index n, Index mEq, Index mIneq)
 {}
 
 
-template <typename MatrixType>
+template <typename MatrixType, LoggerType LType>
 template <typename Rhs1, typename Rhs2, typename Rhs3>
-inline void QpNullSpace<MatrixType>::solve(
+inline void QpNullSpace<MatrixType, LType>::solve(
   const MatrixType& G, const MatrixBase<Rhs1>& c,
   const MatrixType& Aeq, const MatrixBase<Rhs2>& beq,
   const MatrixType& Aineq, const MatrixBase<Rhs3>& bineq,
-  const XVectorType& x0, std::vector<QpNullSpace<MatrixType>::Index> w0)
+  const XVectorType& x0, std::vector<QpNullSpace<MatrixType, LType>::Index> w0)
 {
   static_cast<void>(beq);
 
@@ -110,6 +192,11 @@ inline void QpNullSpace<MatrixType>::solve(
 
   for(int iter = 0; iter < 10; ++iter)
   {
+    logger_.newIteration(iter);
+    logger_.setX(x_);
+    logger_.setWSet(w_);
+    logger_.setIterType(QPLogger<LType>::KeepW);
+
     Index m = buildAw(mEq, Aineq, w_);
     buildgw(G, c, x_);
     bool isConsrained = m != 0;
@@ -128,19 +215,15 @@ inline void QpNullSpace<MatrixType>::solve(
       p_ = -ldltQ_.solve(gw_);
     }
 
+    logger_.setP(p_);
+
     /// @todo better zero check
-    std::cout << "\niter: " << iter << "\n";
-    std::cout << "x: " << x_.transpose() << std::endl;
-    std::cout << "p: " << p_.transpose() << std::endl;
-    std::cout << "Aw: \n";
-    std::cout << Aw_.topRows(m) << std::endl;
-    std::cout << "gw: " << gw_.transpose() << std::endl;
     if(p_.isZero(1e-8))
     {
       if(isConsrained)
       {
         eqQpNs_.solveLambda(gw_);
-        std::cout << "lambda: " << eqQpNs_.lambda().tail(m - mEq).transpose() << "\n";
+        logger_.setLambda(eqQpNs_.lambda());
 
         if((eqQpNs_.lambda().tail(m - mEq).array() > 0.).all())
         {
@@ -150,6 +233,8 @@ inline void QpNullSpace<MatrixType>::solve(
         {
           Index blockingInW;
           eqQpNs_.lambda().tail(m - mEq).minCoeff(&blockingInW);
+          logger_.setWIter(w_[blockingInW]);
+          logger_.setIterType(QPLogger<LType>::RemoveW);
           removeToW(std::size_t(blockingInW));
         }
       }
@@ -177,11 +262,13 @@ inline void QpNullSpace<MatrixType>::solve(
           }
         }
       }
-      std::cout << "alpha: " << alpha << "\n";
 
       x_ += alpha*p_;
       if(newConstrInWNeg != -1)
       {
+        logger_.setWIter(wNeg_[newConstrInWNeg]);
+        logger_.setIterType(QPLogger<LType>::AddW);
+
         addToW(newConstrInWNeg);
       }
     }
@@ -189,8 +276,8 @@ inline void QpNullSpace<MatrixType>::solve(
 }
 
 
-template <typename MatrixType>
-void QpNullSpace<MatrixType>::buildWNeg(Index mInEq, const std::vector<Index>& w)
+template <typename MatrixType, LoggerType LType>
+void QpNullSpace<MatrixType, LType>::buildWNeg(Index mInEq, const std::vector<Index>& w)
 {
   std::vector<Index> wFull(mInEq);
   for(Index i = 0; i < mInEq; ++i)
@@ -204,10 +291,10 @@ void QpNullSpace<MatrixType>::buildWNeg(Index mInEq, const std::vector<Index>& w
 }
 
 
-template <typename MatrixType>
-inline typename QpNullSpace<MatrixType>::Index
-QpNullSpace<MatrixType>::buildAw(Index mEq, const MatrixType& Aineq,
-  const std::vector<QpNullSpace<MatrixType>::Index>& w)
+template <typename MatrixType, LoggerType LType>
+inline typename QpNullSpace<MatrixType, LType>::Index
+QpNullSpace<MatrixType, LType>::buildAw(Index mEq, const MatrixType& Aineq,
+  const std::vector<QpNullSpace<MatrixType, LType>::Index>& w)
 {
   for(std::size_t i = 0; i < w.size(); ++i)
   {
@@ -218,9 +305,9 @@ QpNullSpace<MatrixType>::buildAw(Index mEq, const MatrixType& Aineq,
 }
 
 
-template <typename MatrixType>
+template <typename MatrixType, LoggerType LType>
 template <typename Rhs1>
-inline void QpNullSpace<MatrixType>::buildgw(const MatrixType& G,
+inline void QpNullSpace<MatrixType, LType>::buildgw(const MatrixType& G,
   const MatrixBase<Rhs1>& c, const XVectorType& x)
 {
   gw_.noalias() = c;
@@ -228,19 +315,17 @@ inline void QpNullSpace<MatrixType>::buildgw(const MatrixType& G,
 }
 
 
-template <typename MatrixType>
-void QpNullSpace<MatrixType>::addToW(std::size_t indexInWNeg)
+template <typename MatrixType, LoggerType LType>
+inline void QpNullSpace<MatrixType, LType>::addToW(std::size_t indexInWNeg)
 {
-  std::cout << "add: " << wNeg_[indexInWNeg] << "\n";
   w_.push_back(wNeg_[indexInWNeg]);
   wNeg_.erase(wNeg_.begin() + indexInWNeg);
 }
 
 
-template <typename MatrixType>
-void QpNullSpace<MatrixType>::removeToW(std::size_t indexInW)
+template <typename MatrixType, LoggerType LType>
+inline void QpNullSpace<MatrixType, LType>::removeToW(std::size_t indexInW)
 {
-  std::cout << "remove: " << w_[indexInW] << "\n";
   wNeg_.push_back(w_[indexInW]);
   w_.erase(w_.begin() + indexInW);
 }
