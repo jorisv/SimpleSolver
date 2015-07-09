@@ -53,6 +53,9 @@ public:
   void solve(const MatrixBase<Rhs1>& c, const MatrixBase<Rhs2>& b,
     bool computeLambda=true);
 
+  template <typename Rhs1>
+  void solveLambda(const MatrixBase<Rhs1>& c);
+
   const XVectorType& x() const
   {
     return x_;
@@ -187,19 +190,29 @@ inline void EqQpNullSpace<MatrixType>::solve(const MatrixBase<Rhs1>& c,
 
   if(computeLambda)
   {
-    EQP_CHECK_MALLOC(true);
-
-    // use xy as a buffer
-    xy_.noalias() = Y_.transpose()*c;
-    xy_.noalias() += YTG_*x_;
-
-    EQP_CHECK_MALLOC(false);
-
-    // solve (A*Y)^T = Y^T*(c + G*x)
-    // allocation because of the transpose but even
-    // inverse is calling solve that will make an allocation too
-    l_.noalias() = qrAY_.inverse().transpose()*xy_;
+    solveLambda(c);
   }
+}
+
+
+template <typename MatrixType>
+template <typename Rhs1>
+inline void EqQpNullSpace<MatrixType>::solveLambda(const MatrixBase<Rhs1>& c)
+{
+  eigen_assert(c.rows() == Y_.rows());
+
+  EQP_CHECK_MALLOC(true);
+
+  // use xy as a buffer
+  xy_.noalias() = Y_.transpose()*c;
+  xy_.noalias() += YTG_*x_;
+
+  EQP_CHECK_MALLOC(false);
+
+  // solve (A*Y)^T = Y^T*(c + G*x)
+  // allocation because of the transpose but even
+  // inverse is calling solve that will make an allocation too
+  l_.noalias() = qrAY_.inverse().transpose()*xy_;
 }
 
 
