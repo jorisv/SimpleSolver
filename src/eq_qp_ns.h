@@ -6,11 +6,29 @@
 #include <Eigen/Cholesky>
 #include <Eigen/QR>
 
+#if defined(EIGEN_RUNTIME_NO_MALLOC)
+  #define EQP_CHECK_MALLOC(x) Eigen::internal::set_is_malloc_allowed(!x)
+#else
+  #define EQP_CHECK_MALLOC(x)
+#endif
+
+
 namespace Eigen
 {
 
 namespace qp
 {
+
+
+double eqQpLagrangian(const MatrixXd& G, const VectorXd& c,
+  const MatrixXd& A, const VectorXd& b,
+  const VectorXd& x, const VectorXd& lambda);
+
+
+VectorXd eqQpLagrangianGrad(const MatrixXd& G, const VectorXd& c,
+  const MatrixXd& A,
+  const VectorXd& x, const VectorXd& lambda);
+
 
 /**
   * Use the nullspace method described in [Nocedal, Wright] p 457
@@ -32,7 +50,8 @@ public:
   void compute(const MatrixType& G, const MatrixType& A);
 
   template <typename Rhs1, typename Rhs2>
-  void solve(const MatrixBase<Rhs1>& c, const MatrixBase<Rhs2>& b);
+  void solve(const MatrixBase<Rhs1>& c, const MatrixBase<Rhs2>& b,
+    bool computeLambda=true);
 
   const XVectorType& x() const
   {
@@ -60,13 +79,30 @@ private:
 
 
 
+inline double eqQpLagrangian(const MatrixXd& G, const VectorXd& c,
+  const MatrixXd& A, const VectorXd& b,
+  const VectorXd& x, const VectorXd& lambda)
+{
+  return 0.5*x.transpose()*G*x + x.dot(c) - lambda.dot(A*x - b);
+}
+
+
+inline VectorXd eqQpLagrangianGrad(const MatrixXd& G, const VectorXd& c,
+  const MatrixXd& A,
+  const VectorXd& x, const VectorXd& lambda)
+{
+  return G*x + c -
+    (A.array().colwise()*lambda.array()).matrix().colwise().sum().transpose();
+}
+
+
 template <typename MatrixType>
-EqQpNullSpace<MatrixType>::EqQpNullSpace()
+inline EqQpNullSpace<MatrixType>::EqQpNullSpace()
 {}
 
 
 template <typename MatrixType>
-EqQpNullSpace<MatrixType>::EqQpNullSpace(Index n, Index m)
+inline EqQpNullSpace<MatrixType>::EqQpNullSpace(Index n, Index m)
   : qrAT_{n, m}
   , qrAY_{m, m}
   , lltZTGZ_{n-m}
@@ -90,12 +126,10 @@ EqQpNullSpace<MatrixType>::EqQpNullSpace(Index n, Index m)
 
 
 template <typename MatrixType>
-void EqQpNullSpace<MatrixType>::compute(const MatrixType& G,
+inline void EqQpNullSpace<MatrixType>::compute(const MatrixType& G,
   const MatrixType& A)
 {
-#if defined(EIGEN_RUNTIME_NO_MALLOC)
-  internal::set_is_malloc_allowed(false);
-#endif
+  EQP_CHECK_MALLOC(true);
 
   const Index m = Y_.cols();
   const Index n = Y_.rows();
@@ -121,16 +155,14 @@ void EqQpNullSpace<MatrixType>::compute(const MatrixType& G,
   lltZTGZ_.compute(ZTGZ_);
   qrAY_.compute(AY_);
 
-#if defined(EIGEN_RUNTIME_NO_MALLOC)
-  internal::set_is_malloc_allowed(true);
-#endif
+  EQP_CHECK_MALLOC(false);
 }
 
 
 template <typename MatrixType>
 template <typename Rhs1, typename Rhs2>
-void EqQpNullSpace<MatrixType>::solve(const MatrixBase<Rhs1>& c,
-  const MatrixBase<Rhs2>& b)
+inline void EqQpNullSpace<MatrixType>::solve(const MatrixBase<Rhs1>& c,
+  const MatrixBase<Rhs2>& b, bool computeLambda)
 {
   eigen_assert(c.rows() == Y_.rows());
   eigen_assert(b.rows() == Y_.cols());
@@ -139,9 +171,7 @@ void EqQpNullSpace<MatrixType>::solve(const MatrixBase<Rhs1>& c,
   // allocation in the qr solve method :(
   xy_ = qrAY_.solve(b);
 
-#if defined(EIGEN_RUNTIME_NO_MALLOC)
-  internal::set_is_malloc_allowed(false);
-#endif
+  EQP_CHECK_MALLOC(true);
 
   // solve Z^T*G*Z*x_z = -Z^T*G*Y*X_y - Z^T*c
   // use xz as a buffer
@@ -153,18 +183,23 @@ void EqQpNullSpace<MatrixType>::solve(const MatrixBase<Rhs1>& c,
   x_.noalias() = Y_*xy_;
   x_.noalias() += Z_*xz_;
 
-  // use xy as a buffer
-  xy_.noalias() = Y_.transpose()*c;
-  xy_.noalias() += YTG_*x_;
+  EQP_CHECK_MALLOC(false);
 
-#if defined(EIGEN_RUNTIME_NO_MALLOC)
-  internal::set_is_malloc_allowed(true);
-#endif
+  if(computeLambda)
+  {
+    EQP_CHECK_MALLOC(true);
 
-  // solve (A*Y)^T = Y^T*(c + G*x)
-  // allocation because of the transpose but even
-  // inverse is calling solve that will make an allocation too
-  l_.noalias() = qrAY_.inverse().transpose()*xy_;
+    // use xy as a buffer
+    xy_.noalias() = Y_.transpose()*c;
+    xy_.noalias() += YTG_*x_;
+
+    EQP_CHECK_MALLOC(false);
+
+    // solve (A*Y)^T = Y^T*(c + G*x)
+    // allocation because of the transpose but even
+    // inverse is calling solve that will make an allocation too
+    l_.noalias() = qrAY_.inverse().transpose()*xy_;
+  }
 }
 
 

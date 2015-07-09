@@ -63,4 +63,10 @@ BOOST_AUTO_TEST_CASE(EqQpNsTest)
 
   BOOST_CHECK((x - eqQpNs.x()).isZero(1e-8));
   BOOST_CHECK((lambda - eqQpNs.lambda()).isZero(1e-8));
+
+  double lagrangian = -3.5;
+  BOOST_CHECK_SMALL(qp::eqQpLagrangian(G, c, A, b, eqQpNs.x(), eqQpNs.lambda())
+    - lagrangian, 1e-8);
+  BOOST_CHECK(qp::eqQpLagrangianGrad(G, c, A, eqQpNs.x(), eqQpNs.lambda())
+    .isZero(1e-8));
 }
