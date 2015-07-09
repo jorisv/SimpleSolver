@@ -217,8 +217,10 @@ inline void QpNullSpace<MatrixType, LType>::solve(
 
     logger_.setP(p_);
 
-    /// @todo better zero check
-    if(p_.isZero(1e-8))
+    /// @todo verify zero check
+    /// We check zero against the machine precision multiply by the diagonal
+    /// of the K matrix
+    if(p_.isZero(NumTraits<Scalar>::epsilon()*Scalar(2*n - m)))
     {
       if(isConsrained)
       {
