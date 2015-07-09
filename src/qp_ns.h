@@ -109,7 +109,8 @@ public:
   void solve(const MatrixType& G, const MatrixBase<Rhs1>& c,
     const MatrixType& Aeq, const MatrixBase<Rhs2>& beq,
     const MatrixType& Aineq, const MatrixBase<Rhs3>& bineq,
-    const XVectorType& x0, std::vector<Index> w0);
+    const XVectorType& x0, std::vector<Index> w0,
+    int maxIter=NumTraits<int>::highest());
 
   const XVectorType& x() const
   {
@@ -171,7 +172,8 @@ inline void QpNullSpace<MatrixType, LType>::solve(
   const MatrixType& G, const MatrixBase<Rhs1>& c,
   const MatrixType& Aeq, const MatrixBase<Rhs2>& beq,
   const MatrixType& Aineq, const MatrixBase<Rhs3>& bineq,
-  const XVectorType& x0, std::vector<QpNullSpace<MatrixType, LType>::Index> w0)
+  const XVectorType& x0, std::vector<QpNullSpace<MatrixType, LType>::Index> w0,
+  int maxIter)
 {
   static_cast<void>(beq);
 
@@ -190,7 +192,7 @@ inline void QpNullSpace<MatrixType, LType>::solve(
   Aw_.topRows(mEq) = Aeq;
   x_ = x0;
 
-  for(int iter = 0; iter < 10; ++iter)
+  for(int iter = 0; iter < maxIter; ++iter)
   {
     logger_.newIteration(iter);
     logger_.setX(x_);
