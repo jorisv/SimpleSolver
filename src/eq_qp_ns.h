@@ -121,7 +121,7 @@ inline EqQpNullSpace<MatrixType>::EqQpNullSpace(Index n, Index m)
   , x_{n}
   , l_{m}
 {
-  eigen_assert(n > m);
+  eigen_assert(n >= m);
 }
 
 

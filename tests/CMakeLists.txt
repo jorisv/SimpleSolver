@@ -18,3 +18,4 @@ macro(addUnitTest name)
 endmacro(addUnitTest)
 
 addUnitTest("eq_qp_ns_test")
+addUnitTest("qp_ns_test")

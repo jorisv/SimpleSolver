@@ -10,4 +10,4 @@ include_directories(${EIGEN3_INCLUDE_DIRS})
 # !!! EQP is an empty library !!!
 # !!! Its aim is to test header file and have an IDE integration !!!
 # !!! Don't link against it !!!
-add_library(EQP eq_qp_ns.cpp)
+add_library(EQP eq_qp_ns.cpp qp_ns.cpp)
