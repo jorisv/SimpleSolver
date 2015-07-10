@@ -272,7 +272,7 @@ inline void QpNullSpace<MatrixType, LType>::solve(
         {
           Index blockingInW;
           eqQpNs_.lambda().tail(m - mEq).minCoeff(&blockingInW);
-          logger_.setWIter(w_[blockingInW]);
+          logger_.setWIter(int(w_[blockingInW]));
           logger_.setIterType(QPLogger<LType>::RemoveW);
           removeToW(std::size_t(blockingInW));
 
@@ -311,7 +311,7 @@ inline void QpNullSpace<MatrixType, LType>::solve(
           if(alphaCandidate < alpha)
           {
             alpha = alphaCandidate;
-            newConstrInWNeg = i;
+            newConstrInWNeg = int(i);
           }
         }
       }
@@ -320,7 +320,7 @@ inline void QpNullSpace<MatrixType, LType>::solve(
       x_ += alpha*p_;
       if(newConstrInWNeg != -1)
       {
-        logger_.setWIter(wNeg_[newConstrInWNeg]);
+        logger_.setWIter(int(wNeg_[newConstrInWNeg]));
         logger_.setIterType(QPLogger<LType>::AddW);
 
         addToW(newConstrInWNeg);
