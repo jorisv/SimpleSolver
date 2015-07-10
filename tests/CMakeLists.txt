@@ -17,5 +17,5 @@ macro(addUnitTest name)
   endif()
 endmacro(addUnitTest)
 
-addUnitTest("eq_qp_ns_test")
-addUnitTest("qp_ns_test")
+addUnitTest("EqQpNsTest")
+addUnitTest("QpNsTest")

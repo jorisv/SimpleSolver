@@ -5,9 +5,9 @@
 #include <Eigen/Core>
 #include <Eigen/Cholesky>
 
-// EQP
-#include "eq_qp_ns.h"
-#include "macros.h"
+// SimpleSolver
+#include "EqQpNs.h"
+#include "Macros.h"
 
 
 namespace Eigen

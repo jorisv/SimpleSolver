@@ -6,8 +6,8 @@
 #include <Eigen/Cholesky>
 #include <Eigen/QR>
 
-// EQP
-#include "macros.h"
+// SimpleSolver
+#include "Macros.h"
 
 
 namespace Eigen
@@ -128,7 +128,7 @@ template <typename MatrixType>
 inline void EqQpNullSpace<MatrixType>::compute(const MatrixType& G,
   const MatrixType& A)
 {
-  EQP_CHECK_MALLOC(true);
+  SS_CHECK_MALLOC(true);
 
   const Index m = Y_.cols();
   const Index n = Y_.rows();
@@ -156,7 +156,7 @@ inline void EqQpNullSpace<MatrixType>::compute(const MatrixType& G,
 
   lltZTGZ_.compute(ZTGZ_);
 
-  EQP_CHECK_MALLOC(false);
+  SS_CHECK_MALLOC(false);
 }
 
 
@@ -168,7 +168,7 @@ inline void EqQpNullSpace<MatrixType>::solve(const MatrixBase<Rhs1>& c,
   eigen_assert(c.rows() == Y_.rows());
   eigen_assert(b.rows() == Y_.cols());
 
-  EQP_CHECK_MALLOC(true);
+  SS_CHECK_MALLOC(true);
 
   // solve A*Y*x_y = b
   // since A*Y = P*R^{T}
@@ -189,7 +189,7 @@ inline void EqQpNullSpace<MatrixType>::solve(const MatrixBase<Rhs1>& c,
   x_.noalias() = Y_*xy_;
   x_.noalias() += Z_*xz_;
 
-  EQP_CHECK_MALLOC(false);
+  SS_CHECK_MALLOC(false);
 
   if(computeLambda)
   {
@@ -204,7 +204,7 @@ inline void EqQpNullSpace<MatrixType>::solveLambda(const MatrixBase<Rhs1>& c)
 {
   eigen_assert(c.rows() == Y_.rows());
 
-  EQP_CHECK_MALLOC(true);
+  SS_CHECK_MALLOC(true);
 
   // use xy_ as a buffer
   xy_.noalias() = Y_.transpose()*c;
@@ -220,7 +220,7 @@ inline void EqQpNullSpace<MatrixType>::solveLambda(const MatrixBase<Rhs1>& c)
     triangularView<Upper>().solveInPlace(xy_);
   l_.noalias() = qrAT_.colsPermutation()*xy_;
 
-  EQP_CHECK_MALLOC(false);
+  SS_CHECK_MALLOC(false);
 }
 
 

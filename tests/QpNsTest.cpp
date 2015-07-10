@@ -11,8 +11,8 @@
 #include <Eigen/Core>
 #include <Eigen/QR>
 
-// EQP
-#include "qp_ns.h"
+// SimpleSolver
+#include "Qp.h"
 
 
 using namespace Eigen;

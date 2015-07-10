@@ -8,12 +8,12 @@
 #include <boost/test/unit_test.hpp>
 
 // Eigen
-#define EIGEN_RUNTIME_NO_MALLOC 1
+#define EIGEN_RUNTIME_NO_MALLOC
 #include <Eigen/Core>
 #include <Eigen/QR>
 
-// EQP
-#include "eq_qp_ns.h"
+// SimpleSolver
+#include "EqQpNs.h"
 
 
 using namespace Eigen;

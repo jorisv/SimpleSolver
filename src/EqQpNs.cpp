@@ -1,5 +1,5 @@
 // associated header
-#include "eq_qp_ns.h"
+#include "EqQpNs.h"
 
 namespace Eigen
 {
