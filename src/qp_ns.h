@@ -192,6 +192,8 @@ inline void QpNullSpace<MatrixType, LType>::solve(
   Aw_.topRows(mEq) = Aeq;
   x_ = x0;
 
+  bool wHasChanged = true;
+  bool isLDLTComputed = false;
   for(int iter = 0; iter < maxIter; ++iter)
   {
     logger_.newIteration(iter);
@@ -203,33 +205,51 @@ inline void QpNullSpace<MatrixType, LType>::solve(
     buildgw(G, c, x_);
     bool isConsrained = m != 0;
 
+    // solve a quadratic problem to move along all active constraints
+    // ( p . a_i = 0) while minimizing the cost function.
     if(isConsrained)
     {
-      eqQpNs_ = EqQpNullSpace<MatrixType>{n, m};
-      eqQpNs_.compute(G, Aw_.topRows(m));
-      /// @todo don't solve the full problem each time
+      // only call compute if the w set has changed
+      if(wHasChanged)
+      {
+        eqQpNs_ = EqQpNullSpace<MatrixType>{n, m};
+        /// @todo make a rank update only
+        eqQpNs_.compute(G, Aw_.topRows(m));
+      }
       eqQpNs_.solve(gw_, VectorXd::Zero(m), false);
       p_ = eqQpNs_.x();
     }
     else
     {
-      ldltQ_.compute(G);
+      // only compute he LDLT of Q once
+      if(!isLDLTComputed)
+      {
+        ldltQ_.compute(G);
+        isLDLTComputed = true;
+      }
       p_ = -ldltQ_.solve(gw_);
     }
 
     logger_.setP(p_);
 
+    wHasChanged = false;
     /// @todo verify zero check
     /// We check zero against the machine precision multiply by the diagonal
     /// of the K matrix
     if(p_.isZero(NumTraits<Scalar>::epsilon()*Scalar(2*n - m)))
     {
+
+      // p is a null vector so we have two choice.
+      // 1) All lambda are positive, so all KKT condition are fulfill and
+      // x is a global optimum point.
+      // 2) one or more lambda are negative, so the point is not a global
+      // optimum. We add the most negative lambda constraint to the w set.
       if(isConsrained)
       {
         eqQpNs_.solveLambda(gw_);
         logger_.setLambda(eqQpNs_.lambda());
 
-        if((eqQpNs_.lambda().tail(m - mEq).array() > 0.).all())
+        if((eqQpNs_.lambda().tail(m - mEq).array() > Scalar(0.)).all())
         {
           return;
         }
@@ -240,6 +260,8 @@ inline void QpNullSpace<MatrixType, LType>::solve(
           logger_.setWIter(w_[blockingInW]);
           logger_.setIterType(QPLogger<LType>::RemoveW);
           removeToW(std::size_t(blockingInW));
+
+          wHasChanged = true;
         }
       }
       else
@@ -249,13 +271,25 @@ inline void QpNullSpace<MatrixType, LType>::solve(
     }
     else
     {
-      Scalar alpha = 1.;
+      // p is not null so it indicate the descent direction.
+      // We looking to know of much we must move on this direction (alpha)
+      // by examining the descent direction and constraints that are not in
+      // the w set.
+      // If the dot product a_i . p_k is negative then the descent direction
+      // can violate the constraint for some value of alpha.
+      // We can compute the alpha that will make the constraint i active with
+      // (b_i - a_i . x_k)/(a_i . p_k).
+      // By taking the minimal value of alpha we ensure that no inequality
+      // constraint will be violated.
+      // We then add this constraint to the w set.
+
+      Scalar alpha(1.);
       int newConstrInWNeg = -1;
       for(std::size_t i = 0; i < wNeg_.size(); ++i)
       {
         Index AineqIndex = wNeg_[i];
         double aTp = Aineq.row(AineqIndex).dot(p_);
-        if(aTp < 0.)
+        if(aTp < Scalar(0.))
         {
           double aTx = Aineq.row(AineqIndex).dot(x_);
           double alphaCandidate = (bineq[AineqIndex] - aTx)/aTp;
@@ -267,6 +301,7 @@ inline void QpNullSpace<MatrixType, LType>::solve(
         }
       }
 
+      // move along p
       x_ += alpha*p_;
       if(newConstrInWNeg != -1)
       {
@@ -274,6 +309,7 @@ inline void QpNullSpace<MatrixType, LType>::solve(
         logger_.setIterType(QPLogger<LType>::AddW);
 
         addToW(newConstrInWNeg);
+        wHasChanged = true;
       }
     }
   }
