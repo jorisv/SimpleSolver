@@ -32,3 +32,12 @@ Where the main options are:
  * `-DCMAKE_BUIlD_TYPE=Release` Build in Release mode
  * `-DCMAKE_INSTALL_PREFIX=some/path/to/install` default is `/usr/local`
  * `-DUNIT_TESTS=ON` Build unit tests.
+
+## Pulling git subtree
+
+To update cmake directory with their upstream git repository:
+
+```sh
+git fetch git://github.com/jrl-umi3218/jrl-cmakemodules.git master
+git subtree pull --prefix cmake git://github.com/jrl-umi3218/jrl-cmakemodules.git master --squash
+```

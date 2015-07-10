@@ -1,8 +1,6 @@
-find_package(PkgConfig)
-
-# find eigen3
-pkg_check_modules(EIGEN3 REQUIRED eigen3)
-find_package(Boost REQUIRED COMPONENTS unit_test_framework)
+set(BOOST_COMPONENTS unit_test_framework)
+search_for_eigen()
+search_for_boost()
 
 # -Wno-deprecated-declarations should be remove in a next eigen version
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -std=c++0x -pedantic -Wno-deprecated-declarations")
