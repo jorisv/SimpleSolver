@@ -24,10 +24,12 @@ BOOST_AUTO_TEST_CASE(QRTest)
   A << 1., 0., 1.,
        0., 1., 1.;
 
-  ColPivHouseholderQR<MatrixXd> qr(A.transpose());
-  MatrixXd Q(qr.householderQ());
+  ColPivHouseholderQR<MatrixXd> qrAT(A.transpose());
+  MatrixXd Q(qrAT.householderQ());
   MatrixXd Y(Q.topLeftCorner(3, 2));
   MatrixXd Z(Q.topRightCorner(3, 1));
+  MatrixXd R(qrAT.matrixR().topRows(2));
+  MatrixXd P(qrAT.colsPermutation());
 
   // check if the nullspace computation is OK (AZ = 0)
   MatrixXd AZ(A*Z);
@@ -35,8 +37,16 @@ BOOST_AUTO_TEST_CASE(QRTest)
 
   // check if AY is full rank
   MatrixXd AY(A*Y);
-  qr.compute(AY);
-  BOOST_CHECK_EQUAL(qr.rank(), 2);
+  ColPivHouseholderQR<MatrixXd> qrAY(AY);
+  BOOST_CHECK_EQUAL(qrAY.rank(), 2);
+
+  // check AY = P R^T
+  BOOST_CHECK_SMALL((AY - P*R.transpose()).norm(), 1e-8);
+
+  // check (AY)^{-1} = (P R^T)^{-1} = R^{T^{-1}} P
+  MatrixXd RTinvP(R.transpose().triangularView<Lower>()
+    .solve(Matrix2d::Identity())*P);
+  BOOST_CHECK_SMALL((qrAY.inverse() - RTinvP).norm(), 1e-8);
 }
 
 

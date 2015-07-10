@@ -65,7 +65,7 @@ public:
 
 
 private:
-  ColPivHouseholderQR<MatrixType> qrAT_, qrAY_;
+  ColPivHouseholderQR<MatrixType> qrAT_;
   LLT<MatrixType> lltZTGZ_;
   // preallocation for the computation of Q
   Matrix<Scalar, Dynamic, Dynamic> Q_, AT_;
@@ -104,7 +104,6 @@ inline EqQpNullSpace<MatrixType>::EqQpNullSpace()
 template <typename MatrixType>
 inline EqQpNullSpace<MatrixType>::EqQpNullSpace(Index n, Index m)
   : qrAT_{n, m}
-  , qrAY_{m, m}
   , lltZTGZ_{n-m}
   , Q_{n, n}
   , AT_{n, m}
@@ -139,6 +138,7 @@ inline void EqQpNullSpace<MatrixType>::compute(const MatrixType& G,
   // compute the Q matrix and extract Y and Z
   AT_ = A.transpose();
   qrAT_.compute(AT_);
+  // avoid one allocation by using evalTo with already allocated workspace
   qrAT_.householderQ().evalTo(Q_, Qw_);
   Y_.noalias() = Q_.topLeftCorner(n, m);
   Z_.noalias() = Q_.topRightCorner(n, n - m);
@@ -150,10 +150,11 @@ inline void EqQpNullSpace<MatrixType>::compute(const MatrixType& G,
   ZTGY_.noalias() = ZTG_*Y_;
   ZTGZ_.noalias() = ZTG_*Z_;
   YTG_.noalias() = Y_.transpose()*G;
+  /// @todo figure out if is better to use AY = P*R^T that seem to be
+  /// thresholded
   AY_.noalias() = A*Y_;
 
   lltZTGZ_.compute(ZTGZ_);
-  qrAY_.compute(AY_);
 
   EQP_CHECK_MALLOC(false);
 }
@@ -167,11 +168,16 @@ inline void EqQpNullSpace<MatrixType>::solve(const MatrixBase<Rhs1>& c,
   eigen_assert(c.rows() == Y_.rows());
   eigen_assert(b.rows() == Y_.cols());
 
-  // solve A*Y*x_y = b
-  // allocation in the qr solve method :(
-  xy_ = qrAY_.solve(b);
-
   EQP_CHECK_MALLOC(true);
+
+  // solve A*Y*x_y = b
+  // since A*Y = P*R^{T}
+  // with P a permutation matrix and R an upper triangular matrix
+  // P*R^{T}*x_y = b
+  // R^{T}*x_y = P*b
+  xy_.noalias() = qrAT_.colsPermutation()*b;
+  qrAT_.matrixR().topRows(Y_.cols()).template
+    triangularView<Upper>().transpose().solveInPlace(xy_);
 
   // solve Z^T*G*Z*x_z = -Z^T*G*Y*X_y - Z^T*c
   // use xz as a buffer
@@ -200,16 +206,21 @@ inline void EqQpNullSpace<MatrixType>::solveLambda(const MatrixBase<Rhs1>& c)
 
   EQP_CHECK_MALLOC(true);
 
-  // use xy as a buffer
+  // use xy_ as a buffer
   xy_.noalias() = Y_.transpose()*c;
   xy_.noalias() += YTG_*x_;
 
-  EQP_CHECK_MALLOC(false);
+  // solve (A*Y)^T*lambda = Y^T*(c + G*x)
+  // see xy_ computation for some explanations
+  // (P*R^{T})^T*lambda = Y^T*(c + G*x)
+  // R*P*lambda = Y^T(c + G*x)
+  // P*lambda = R^{-1}*Y^T(c + G*x)
+  // lambda = P*R^{T^{-1}}*Y^T(c + G*x)
+  qrAT_.matrixR().topRows(Y_.cols()).template
+    triangularView<Upper>().solveInPlace(xy_);
+  l_.noalias() = qrAT_.colsPermutation()*xy_;
 
-  // solve (A*Y)^T = Y^T*(c + G*x)
-  // allocation because of the transpose but even
-  // inverse is calling solve that will make an allocation too
-  l_.noalias() = qrAY_.inverse().transpose()*xy_;
+  EQP_CHECK_MALLOC(false);
 }
 
 
