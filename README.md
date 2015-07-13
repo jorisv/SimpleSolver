@@ -1,6 +1,6 @@
 #SimpleSolver
 
-SimpleSolver aim to provide a set of solver writing with the Eigen3 library.
+SimpleSolver aims to provide a set of solvers written with the Eigen3 library.
 
 The purpose of this library is to be educational and not about providing efficient solvers.
 
