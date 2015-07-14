@@ -50,10 +50,21 @@ template <typename MatrixType>
 class EqQpNullSpace
 {
 public:
+  enum {
+    RowsAtCompileTime = MatrixType::RowsAtCompileTime,
+    ColsAtCompileTime = MatrixType::ColsAtCompileTime,
+    Options = MatrixType::Options,
+    MaxRowsAtCompileTime = MatrixType::MaxRowsAtCompileTime,
+    MaxColsAtCompileTime = MatrixType::MaxColsAtCompileTime,
+  };
+
   typedef typename MatrixType::Index Index;
   typedef typename MatrixType::Scalar Scalar;
-  typedef Matrix<Scalar, Dynamic, 1> XVectorType;
-  typedef Matrix<Scalar, Dynamic, 1> LVectorType;
+  typedef Matrix<Scalar, Dynamic, 1, Options> XVectorType;
+  typedef Matrix<Scalar, Dynamic, 1, Options> LVectorType;
+
+  typedef Matrix<Scalar, Dynamic, Dynamic, Options> TmpMatrixType;
+  typedef Matrix<Scalar, Dynamic, 1, Options> TmpVectorType;
 
 public:
   EqQpNullSpace();
@@ -83,11 +94,11 @@ private:
   ColPivHouseholderQR<MatrixType> qrAT_;
   LLT<MatrixType> lltZTGZ_;
   // preallocation for the computation of Q
-  Matrix<Scalar, Dynamic, Dynamic> Q_, AT_;
-  Matrix<Scalar, Dynamic, 1> Qw_;
+  TmpMatrixType Q_, AT_;
+  TmpVectorType Qw_;
   // Store the G and A matrix and buffer to avoid allocations
-  Matrix<Scalar, Dynamic, Dynamic> ZTG_, ZTGY_, ZTGZ_, YTG_, AY_;
-  Matrix<Scalar, Dynamic, Dynamic> Y_, Z_;
+  TmpMatrixType ZTG_, ZTGY_, ZTGZ_, YTG_, AY_;
+  TmpMatrixType Y_, Z_;
   XVectorType xy_, xz_, x_;
   LVectorType l_; // lambda
 };

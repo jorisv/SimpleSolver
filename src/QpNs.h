@@ -110,9 +110,20 @@ template <typename MatrixType, LoggerType LType=LoggerType::Dummy>
 class QpNullSpace
 {
 public:
+  enum {
+    RowsAtCompileTime = MatrixType::RowsAtCompileTime,
+    ColsAtCompileTime = MatrixType::ColsAtCompileTime,
+    Options = MatrixType::Options,
+    MaxRowsAtCompileTime = MatrixType::MaxRowsAtCompileTime,
+    MaxColsAtCompileTime = MatrixType::MaxColsAtCompileTime,
+  };
+
   typedef typename MatrixType::Index Index;
   typedef typename MatrixType::Scalar Scalar;
-  typedef Matrix<Scalar, Dynamic, 1> XVectorType;
+  typedef Matrix<Scalar, Dynamic, 1, Options> XVectorType;
+
+  typedef Matrix<Scalar, Dynamic, Dynamic, Options> TmpMatrixType;
+  typedef Matrix<Scalar, Dynamic, 1, Options> TmpVectorType;
 
   typedef QPLogger<LType> Logger;
 
@@ -158,8 +169,8 @@ public:
   EqQpNullSpace<MatrixType> eqQpNs_;
   LDLT<MatrixType> ldltQ_;
   /// Aw_ after Aeq.rows() is in w_ order
-  Matrix<Scalar, Dynamic, Dynamic> Aw_;
-  Matrix<Scalar, Dynamic, 1> gw_;
+  TmpMatrixType Aw_;
+  TmpVectorType gw_;
   XVectorType x_, p_;
 
   Logger logger_;
