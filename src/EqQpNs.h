@@ -93,6 +93,7 @@ public:
 private:
   ColPivHouseholderQR<MatrixType> qrAT_;
   LLT<MatrixType> lltZTGZ_;
+  /// @todo reduce the number of buffer...
   // preallocation for the computation of Q
   TmpMatrixType Q_, AT_;
   TmpVectorType Qw_;
@@ -154,12 +155,29 @@ template <typename MatrixType>
 inline void EqQpNullSpace<MatrixType>::compute(const MatrixType& G,
   const MatrixType& A)
 {
-  SS_CHECK_MALLOC(true);
+  const Index m = A.rows();
+  const Index n = A.cols();
 
-  const Index m = Y_.cols();
-  const Index n = Y_.rows();
+  eigen_assert(n >= m);
   eigen_assert(G.rows() == n && G.cols() == n);
-  eigen_assert(A.rows() == m && A.cols() == n);
+
+  // resize all the buffer
+  Q_.resize(n, n);
+  AT_.resize(n, m);
+  Qw_.resize(n);
+  ZTG_.resize(n-m, n);
+  ZTGY_.resize(n-m, m);
+  ZTGZ_.resize(n-m, n-m);
+  YTG_.resize(m, n);
+  AY_.resize(m, m);
+  Y_.resize(n, m);
+  Z_.resize(n, n-m);
+  xy_.resize(m);
+  xz_.resize(n-m);
+  x_.resize(n);
+  l_.resize(m);
+
+  SS_CHECK_MALLOC(true);
 
   // compute the Q matrix and extract Y and Z
   AT_ = A.transpose();

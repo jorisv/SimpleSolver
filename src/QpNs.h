@@ -238,7 +238,6 @@ inline void QpNullSpace<MatrixType, LType>::solve(
       // only call compute if the w set has changed
       if(wHasChanged)
       {
-        eqQpNs_ = EqQpNullSpace<MatrixType>{n, m};
         /// @todo make a rank update only
         eqQpNs_.compute(G, Aw_.topRows(m));
       }
