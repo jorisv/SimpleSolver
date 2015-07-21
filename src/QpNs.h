@@ -135,7 +135,7 @@ public:
   void solve(const MatrixType& G, const MatrixBase<Rhs1>& c,
     const MatrixType& Aeq, const MatrixBase<Rhs2>& beq,
     const MatrixType& Aineq, const MatrixBase<Rhs3>& bineq,
-    const XVectorType& x0, std::vector<Index> w0,
+    const XVectorType& x0, const std::vector<Index>& w0,
     int maxIter=NumTraits<int>::highest());
 
   const XVectorType& x() const
@@ -198,7 +198,8 @@ inline void QpNullSpace<MatrixType, LType>::solve(
   const MatrixType& G, const MatrixBase<Rhs1>& c,
   const MatrixType& Aeq, const MatrixBase<Rhs2>& beq,
   const MatrixType& Aineq, const MatrixBase<Rhs3>& bineq,
-  const XVectorType& x0, std::vector<QpNullSpace<MatrixType, LType>::Index> w0,
+  const XVectorType& x0,
+  const std::vector<QpNullSpace<MatrixType, LType>::Index>& w0,
   int maxIter)
 {
   static_cast<void>(beq);
@@ -207,7 +208,7 @@ inline void QpNullSpace<MatrixType, LType>::solve(
   const Index mEq = Aeq.rows();
   const Index mInEq = Aineq.rows();
 
-  w_ = std::move(w0);
+  w_ = w0;
   std::sort(w_.begin(), w_.end());
   buildWNeg(mInEq, w_);
 
