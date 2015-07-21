@@ -13,10 +13,17 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with SimpleSolver.  If not, see <http://www.gnu.org/licenses/>.
 
-#pragma once
-
-// includes
-// SimpleSolver
-#include "EqQpNs.h"
-#include "QpNs.h"
+// associated header
 #include "QpStartTypeI.h"
+
+namespace Eigen
+{
+
+namespace qp
+{
+
+template class QpStartTypeI<QpNullSpace<MatrixXd>>;
+
+}
+
+}

@@ -33,7 +33,7 @@
 using namespace Eigen;
 
 
-BOOST_AUTO_TEST_CASE(EqQpNsTest)
+BOOST_AUTO_TEST_CASE(QpNsTest)
 {
   MatrixXd G{3,3}, Aeq{2,3}, Aineq{0,3};
   VectorXd c{3}, beq{2, 1}, bineq{0, 1};
@@ -58,7 +58,7 @@ BOOST_AUTO_TEST_CASE(EqQpNsTest)
 }
 
 
-BOOST_AUTO_TEST_CASE(EqQpNsTest1)
+BOOST_AUTO_TEST_CASE(QpNsTest1)
 {
   MatrixXd G{2,2}, Aeq{0,2}, Aineq{5,2};
   VectorXd c{2}, beq{0, 1}, bineq{5, 1};
@@ -135,4 +135,40 @@ BOOST_AUTO_TEST_CASE(EqQpNsTest1)
   BOOST_CHECK_SMALL((logger.datas[5].x - x5).norm(), 1e-8);
   BOOST_CHECK_SMALL((logger.datas[5].lambda - lambda5).norm(), 1e-8);
   BOOST_CHECK_EQUAL(logger.datas[5].iterType, Solver::Logger::KeepW);
+}
+
+BOOST_AUTO_TEST_CASE(QpStartTypeITest)
+{
+  MatrixXd G{2,2}, Aeq{0,2}, Aineq{5,2};
+  VectorXd c{2}, beq{0, 1}, bineq{5, 1};
+  VectorXd x{2}, x0{2};
+
+  G << 2., 0.,
+       0., 2.;
+  Aineq << 1., -2.,
+           -1., -2.,
+           -1, 2.,
+           1., 0.,
+           0., 1.;
+
+  c << -2., -5.;
+  bineq << -2., -6., -2., 0., 0.;
+
+  x << 1.4, 1.7;
+  x0 << -1., -1.;
+
+  typedef qp::QpNullSpace<MatrixXd, qp::LoggerType::Full> Solver;
+  typedef qp::QpStartTypeI<Solver> SolverStart;
+
+  Solver qpNs{2, 0, 5};
+  SolverStart qpNsStart{2, 0, 5};
+
+  /*
+  qpNsStart.findInit(qpNs, Aeq, beq, Aineq, bineq, x0, {});
+  std::cout << qpNsStart.x().transpose() << "\n";
+  for(auto i: qpNsStart.w()) std::cout << i << " ";
+  std::cout << "\n";
+  */
+
+//  qpNs.solve(G, c, Aeq, beq, Aineq, bineq, x0, {2, 4});
 }
