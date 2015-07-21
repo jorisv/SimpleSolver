@@ -92,7 +92,7 @@ public:
 
 private:
   ColPivHouseholderQR<MatrixType> qrAT_;
-  LLT<MatrixType> lltZTGZ_;
+  LDLT<MatrixType> ldltZTGZ_;
   /// @todo reduce the number of buffer...
   // preallocation for the computation of Q
   TmpMatrixType Q_, AT_;
@@ -131,7 +131,7 @@ inline EqQpNullSpace<MatrixType>::EqQpNullSpace()
 template <typename MatrixType>
 inline EqQpNullSpace<MatrixType>::EqQpNullSpace(Index n, Index m)
   : qrAT_{n, m}
-  , lltZTGZ_{n-m}
+  , ldltZTGZ_{n-m}
   , Q_{n, n}
   , AT_{n, m}
   , Qw_{n}
@@ -190,15 +190,20 @@ inline void EqQpNullSpace<MatrixType>::compute(const MatrixType& G,
   // compute YTG and ZTG to avoid to have the
   // G matrix give in the next step
   // Compute AY, ZTGZ and ZTGY to avoid allocations
-  ZTG_.noalias() = Z_.transpose()*G;
-  ZTGY_.noalias() = ZTG_*Y_;
-  ZTGZ_.noalias() = ZTG_*Z_;
+
+  // if n == m the ldlt computation go in an assert because
+  // of the (0,0) shape matrix
+  if(n != m)
+  {
+    ZTG_.noalias() = Z_.transpose()*G;
+    ZTGY_.noalias() = ZTG_*Y_;
+    ZTGZ_.noalias() = ZTG_*Z_;
+    ldltZTGZ_.compute(ZTGZ_);
+  }
   YTG_.noalias() = Y_.transpose()*G;
   /// @todo figure out if is better to use AY = P*R^T that seem to be
   /// thresholded
   AY_.noalias() = A*Y_;
-
-  lltZTGZ_.compute(ZTGZ_);
 
   SS_CHECK_MALLOC(false);
 }
@@ -209,8 +214,11 @@ template <typename Rhs1, typename Rhs2>
 inline void EqQpNullSpace<MatrixType>::solve(const MatrixBase<Rhs1>& c,
   const MatrixBase<Rhs2>& b, bool computeLambda)
 {
-  eigen_assert(c.rows() == Y_.rows());
-  eigen_assert(b.rows() == Y_.cols());
+  const Index m = Y_.cols();
+  const Index n = Y_.rows();
+
+  eigen_assert(c.rows() == n);
+  eigen_assert(b.rows() == m);
 
   SS_CHECK_MALLOC(true);
 
@@ -225,13 +233,19 @@ inline void EqQpNullSpace<MatrixType>::solve(const MatrixBase<Rhs1>& c,
 
   // solve Z^T*G*Z*x_z = -Z^T*G*Y*X_y - Z^T*c
   // use xz as a buffer
-  xz_.noalias() = -ZTGY_*xy_;
-  xz_.noalias() -= Z_.transpose()*c;
-  xz_ = lltZTGZ_.solve(xz_);
+  if(n != m)
+  {
+    xz_.noalias() = -ZTGY_*xy_;
+    xz_.noalias() -= Z_.transpose()*c;
+    xz_ = ldltZTGZ_.solve(xz_);
+  }
 
   // compute x = Y*x_y + Z*x_z
   x_.noalias() = Y_*xy_;
-  x_.noalias() += Z_*xz_;
+  if(n != m)
+  {
+    x_.noalias() += Z_*xz_;
+  }
 
   SS_CHECK_MALLOC(false);
 

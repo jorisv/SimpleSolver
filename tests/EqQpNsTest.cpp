@@ -89,9 +89,46 @@ BOOST_AUTO_TEST_CASE(EqQpNsTest)
   BOOST_CHECK((x - eqQpNs.x()).isZero(1e-8));
   BOOST_CHECK((lambda - eqQpNs.lambda()).isZero(1e-8));
 
-  double lagrangian = -3.5;
+  const double lagrangian = -3.5;
   BOOST_CHECK_SMALL(qp::eqQpLagrangian(G, c, A, b, eqQpNs.x(), eqQpNs.lambda())
     - lagrangian, 1e-8);
   BOOST_CHECK(qp::eqQpLagrangianGrad(G, c, A, eqQpNs.x(), eqQpNs.lambda())
     .isZero(1e-8));
+}
+
+
+// check if EqQpNullSpace work with a positive semi-definite problem
+// with the A matrix null space not canceling the positive semi-definite
+// part of the G matrix
+BOOST_AUTO_TEST_CASE(EqQpNsSemiPosDefTest)
+{
+  MatrixXd G{3,3}, A{2,3};
+  VectorXd c{3}, b{2};
+  VectorXd x{3}, lambda{2};
+  G << 1., 0., 0.,
+       0., 1., 0.,
+       0., 0., 0.;
+  A << 1., 0., 0.,
+       0., 1., 0.;
+
+  c << -8., -3., -3.;
+  b << 3., 0.;
+
+  x << 3., 0., 0.;
+  lambda << -5., -3.;
+
+  qp::EqQpNullSpace<MatrixXd> eqQpNs(3, 2);
+  eqQpNs.compute(G, A);
+  eqQpNs.solve(c, b);
+
+  BOOST_CHECK((x - eqQpNs.x()).isZero(1e-8));
+  BOOST_CHECK((lambda - eqQpNs.lambda()).isZero(1e-8));
+
+  const double lagrangian = -19.5;
+  BOOST_CHECK_SMALL(qp::eqQpLagrangian(G, c, A, b, eqQpNs.x(), eqQpNs.lambda())
+    - lagrangian, 1e-8);
+  // third row is not canceled because is associated with
+  // the positive semi-definite part of G
+  BOOST_CHECK(qp::eqQpLagrangianGrad(G, c, A, eqQpNs.x(), eqQpNs.lambda())
+    .head(2).isZero(1e-8));
 }
