@@ -143,6 +143,11 @@ public:
     return x_;
   }
 
+  const std::vector<Index>& w() const
+  {
+    return w_;
+  }
+
   const Logger& logger() const
   {
     return logger_;
