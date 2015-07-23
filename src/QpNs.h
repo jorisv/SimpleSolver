@@ -213,6 +213,8 @@ inline void QpNullSpace<MatrixType, LType>::solve(
   const Index mEq = Aeq.rows();
   const Index mInEq = Aineq.rows();
 
+  logger_.clear();
+
   w_ = w0;
   std::sort(w_.begin(), w_.end());
   buildWNeg(mInEq, w_);
@@ -274,7 +276,7 @@ inline void QpNullSpace<MatrixType, LType>::solve(
       // 1) All lambda are positive, so all KKT condition are fulfill and
       // x is a global optimum point.
       // 2) one or more lambda are negative, so the point is not a global
-      // optimum. We add the most negative lambda constraint to the w set.
+      // optimum. We remove the most negative lambda constraint to the w set.
       if(isConsrained)
       {
         eqQpNs_.solveLambda(gw_);
