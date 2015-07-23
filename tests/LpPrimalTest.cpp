@@ -45,7 +45,7 @@ BOOST_AUTO_TEST_CASE(LpPrimalTest1)
            -5., 2.,
            4., 2.;
 
-  c << 1., 1.;
+  c << -1., -1.;
   bineq << 4., -10., -11., -23., 4.;
   x << 4., 3.;
 
@@ -98,7 +98,7 @@ BOOST_AUTO_TEST_CASE(LpPrimalTest2)
            -3./2., -1.;
 
   bineq << 0., 0., -1., -3.;
-  c << 0., 1.;
+  c << -0., -1.;
   x << 4./5., 9./5.;
 
   typedef lp::LpPrimal<MatrixXd, lp::LoggerType::Full> LpSolver;

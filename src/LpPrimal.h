@@ -235,11 +235,19 @@ LpPrimal<MatrixType, LType>::solve(
 
     // Terminate if All lambda are positive, so all KKT condition are fulfill
     // and x is a global optimum point.
-    // @TODO don't compute the full inverse
-    lambda_ = -luAw_.inverse().transpose()*c;
+    // Aw = PLU with P a permutation matrix, L an unit-lower triangular matrix
+    // and U an upper triangular matrix
+    // Aw^{T} = U^{T} L^{T} P^{T}
+    // Aw^{T} lambda = c
+    // lambda = Aw^{T^{-1}} c
+    // lambda = (U^{T}·L^{T}·P^{T})^{-1} c
+    // lambda = (P L^{T^{-1}} U^{T^{-1}}) c
+    lambda_ = luAw_.matrixLU().template triangularView<Upper>().transpose().solve(c);
+    luAw_.matrixLU().template triangularView<UnitLower>().transpose().solveInPlace(lambda_);
+    lambda_ = luAw_.permutationP()*lambda_;
     logger_.setLambda(lambda_);
 
-    if((lambda_.tail(n - mEq).array() > Scalar(0.)).all())
+    if((lambda_.tail(n - mEq).array() >= Scalar(0.)).all())
     {
       return Exit::Success;
     }
@@ -251,15 +259,18 @@ LpPrimal<MatrixType, LType>::solve(
     lambda_.tail(n - mEq).minCoeff(&blockingInW);
     leavingIndex = w_[blockingInW];
     logger_.setLeavingW(int(leavingIndex));
-    removeToW(std::size_t(blockingInW));
 
     // compute the descent direction d that must move in the active constraint
     // direction and in the leaving constraint normal direction
     // a_i^{T} d = 0, with i in w\leavingIndex
     // a_i^{T} d = 1, with i = leavingIndex
     // So it's the leavingIndex column of the Aw^{-1} matrix
-    // @TODO don't compute the full inverse
-    d_ = luAw_.inverse().col(mEq + blockingInW);
+    // d_ = luAw_.inverse().col(mEq + blockingInW);
+    // @TODO is that better than using directly the inverse matrix ?
+    d_ = luAw_.permutationP()*VectorXd::Unit(n, mEq + blockingInW);
+    luAw_.matrixLU().template triangularView<UnitLower>().solveInPlace(d_);
+    luAw_.matrixLU().template triangularView<Upper>().solveInPlace(d_);
+
     logger_.setD(d_);
 
     // We looking to know of much we must move on d (alpha)
@@ -299,7 +310,6 @@ LpPrimal<MatrixType, LType>::solve(
 
     Index enteringIndex = wNeg_[newConstrInWNeg];
     logger_.setEnteringW(int(enteringIndex));
-    addToW(newConstrInWNeg);
 
     // move along d
     x_ += alpha*d_;
@@ -309,6 +319,9 @@ LpPrimal<MatrixType, LType>::solve(
     Aw_.row(mEq + blockingInW) = Aineq.row(enteringIndex);
     bw_(mEq + blockingInW) = bineq(enteringIndex);
     luAw_.compute(Aw_);
+
+    removeToW(std::size_t(blockingInW));
+    addToW(newConstrInWNeg);
   }
 
   return Exit::MaxIter;
