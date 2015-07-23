@@ -267,9 +267,7 @@ LpPrimal<MatrixType, LType>::solve(
     // So it's the leavingIndex column of the Aw^{-1} matrix
     // d_ = luAw_.inverse().col(mEq + blockingInW);
     // @TODO is that better than using directly the inverse matrix ?
-    d_ = luAw_.permutationP()*VectorXd::Unit(n, mEq + blockingInW);
-    luAw_.matrixLU().template triangularView<UnitLower>().solveInPlace(d_);
-    luAw_.matrixLU().template triangularView<Upper>().solveInPlace(d_);
+    d_ = luAw_.solve(VectorXd::Unit(n, mEq + blockingInW));
 
     logger_.setD(d_);
 
