@@ -17,3 +17,4 @@ endmacro(addUnitTest)
 
 addUnitTest("EqQpNsTest")
 addUnitTest("QpNsTest")
+addUnitTest("LpPrimalTest")

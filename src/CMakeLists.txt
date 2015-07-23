@@ -1,5 +1,5 @@
-set(SOURCES EqQpNs.cpp QpNs.cpp QpStartTypeI.cpp)
-set(HEADERS EqQpNs.h QpNs.h Qp.h QpStartTypeI.h)
+set(SOURCES EqQpNs.cpp QpNs.cpp QpStartTypeI.cpp LpPrimal.cpp)
+set(HEADERS EqQpNs.h QpNs.h Qp.h QpStartTypeI.h LpPrimal.h)
 
 search_for_eigen()
 
