@@ -226,8 +226,9 @@ inline void EqQpNullSpace<MatrixType>::solve(const MatrixBase<Rhs1>& c,
   // since A*Y = P*R^{T}
   // with P a permutation matrix and R an upper triangular matrix
   // P*R^{T}*x_y = b
-  // R^{T}*x_y = P*b
-  xy_.noalias() = qrAT_.colsPermutation()*b;
+  // R^{T}*x_y = P^{T}*b
+  // x_y = R^{T^{-1}}*P^{T}*b
+  xy_.noalias() = qrAT_.colsPermutation().transpose()*b;
   qrAT_.matrixR().topRows(Y_.cols()).template
     triangularView<Upper>().transpose().solveInPlace(xy_);
 
@@ -271,8 +272,8 @@ inline void EqQpNullSpace<MatrixType>::solveLambda(const MatrixBase<Rhs1>& c)
   // solve (A*Y)^T*lambda = Y^T*(c + G*x)
   // see xy_ computation for some explanations
   // (P*R^{T})^T*lambda = Y^T*(c + G*x)
-  // R*P*lambda = Y^T(c + G*x)
-  // P*lambda = R^{-1}*Y^T(c + G*x)
+  // R*P^{T}*lambda = Y^T(c + G*x)
+  // P^{T}*lambda = R^{-1}*Y^T(c + G*x)
   // lambda = P*R^{T^{-1}}*Y^T(c + G*x)
   qrAT_.matrixR().topRows(Y_.cols()).template
     triangularView<Upper>().solveInPlace(xy_);
