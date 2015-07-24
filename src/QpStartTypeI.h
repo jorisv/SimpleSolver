@@ -158,6 +158,8 @@ typename QpStartTypeI<QpType>::Exit QpStartTypeI<QpType>::findInit(
     }
   }
 
+  eigen_assert((zIneq + mEq) >= n);
+
   // if no violation, then the problem is feasible
   if((zIneq + zEq) == 0)
   {
@@ -200,8 +202,8 @@ typename QpStartTypeI<QpType>::Exit QpStartTypeI<QpType>::findInit(
   bineq_.head(mIneq) = bineq;
   bineq_.tail(zEq + zIneq).setZero();
 
-  // fill w_ with z constraints
-  for(Index i = 0; i < (zEq + zIneq) - (zIneq - n); ++i)
+  // fill w_ with z constraints until w_ reach newN size
+  for(Index i = 0; i < (zEq + zIneq) - (zIneq - (n - mEq)); ++i)
   {
     w_.push_back(mIneq + i);
   }
