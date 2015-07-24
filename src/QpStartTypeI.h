@@ -17,7 +17,8 @@
 
 // includes
 // SimpleSolver
-#include "QpNs.h"
+#include "LpPrimal.h"
+
 
 namespace Eigen
 {
@@ -42,15 +43,23 @@ public:
   typedef Matrix<Scalar, Dynamic, Dynamic, Options> MatrixType;
   typedef Matrix<Scalar, Dynamic, 1, Options> VectorType;
 
+  typedef lp::LpPrimal<MatrixType> SolverType;
+
+  enum struct Exit {
+    Success=SolverType::Exit::Success,
+    Unbounded=SolverType::Exit::Unbounded,
+    MaxIter=SolverType::Exit::MaxIter,
+    Infeasible
+  };
+
 public:
   QpStartTypeI();
   QpStartTypeI(Index n, Index mEq, Index mIneq);
 
   template <typename Rhs1, typename Rhs2>
-  void findInit(QpType& solver,
-    const MatrixType& Aeq, const MatrixBase<Rhs1>& beq,
+  Exit findInit(const MatrixType& Aeq, const MatrixBase<Rhs1>& beq,
     const MatrixType& Aineq, const MatrixBase<Rhs2>& bineq,
-    const VectorType& x0, const std::vector<Index>& w0,
+    const VectorType& x0, Scalar precision,
     int maxIter=NumTraits<int>::highest());
 
   const VectorType& x() const
@@ -64,8 +73,10 @@ public:
   }
 
 private:
-  std::vector<Index> w_;
-  MatrixType G_, Aeq_, Aineq_;
+  SolverType solver_;
+
+  std::vector<Index> w_, violEq_;
+  MatrixType Aeq_, Aineq_;
   VectorType c_, bineq_, x_;
   VectorType tmp_;
 };
@@ -79,89 +90,146 @@ inline QpStartTypeI<QpType>::QpStartTypeI()
 
 template <typename QpType>
 inline QpStartTypeI<QpType>::QpStartTypeI(Index n, Index mEq, Index mIneq)
-  : G_{n + mEq + mIneq, n + mEq + mIneq}
+  : solver_{n + mEq + mIneq, mEq, mEq + 2*mIneq}
   , Aeq_{mEq, n + mEq + mIneq}
   , Aineq_{mEq + 2*mIneq, n + mEq + mIneq}
   , c_{n + mEq + mIneq}
   , bineq_{mEq + 2*mIneq}
   , x_{n + mEq + mIneq}
-  , tmp_{std::max(mEq, mIneq)}
+  , tmp_{mEq + mIneq}
 {}
 
 
 template <typename QpType>
 template <typename Rhs1, typename Rhs2>
-void QpStartTypeI<QpType>::findInit(QpType& solver,
+typename QpStartTypeI<QpType>::Exit QpStartTypeI<QpType>::findInit(
   const QpStartTypeI<QpType>::MatrixType& Aeq, const MatrixBase<Rhs1>& beq,
   const QpStartTypeI<QpType>::MatrixType& Aineq, const MatrixBase<Rhs2>& bineq,
   const QpStartTypeI<QpType>::VectorType& x0,
-  const std::vector<QpStartTypeI<QpType>::Index>& w0,
+  Scalar precision,
   int maxIter)
 {
   eigen_assert(Aeq.cols() == Aineq.cols());
   eigen_assert(Aeq.rows() == beq.rows());
   eigen_assert(Aineq.rows() == bineq.rows());
 
-  Index n = Aeq.cols();
-  Index mEq = Aeq.rows();
-  Index mIneq = Aineq.rows();
-  Index newN = n + mEq + mIneq;
+  const Index n = Aeq.cols();
+  const Index mEq = Aeq.rows();
+  const Index mIneq = Aineq.rows();
 
-  G_.setZero(newN, newN);
-  c_.resize(newN);
-  c_.head(n).setZero();
-  c_.tail(newN - n).setOnes();
+  // clear the buffers
+  w_.clear();
+  violEq_.clear();
 
-  Aeq_.resize(mEq, newN);
-  tmp_.resize(std::max(mEq, mIneq));
+  // compute constraint violation
+  tmp_.resize(mEq + mIneq);
 
-  Aeq_.block(0, 0, mEq, n) = Aeq;
-  tmp_.head(mEq).noalias() = Aeq*x0;
-  tmp_.head(mEq).noalias() -= beq;
-  Aeq_.block(0, n, mEq, mEq) =
-    ((tmp_.head(mEq).array() > 0.)
-     .select(-VectorType::Ones(mEq), VectorType::Ones(mEq))).asDiagonal();
-  Aeq_.block(0, n + mEq, mEq, mIneq).setZero();
+  tmp_.head(mEq) = -beq;
+  tmp_.head(mEq).noalias() += Aeq*x0;
+  tmp_.tail(mIneq) = -bineq;
+  tmp_.tail(mIneq).noalias() += Aineq*x0;
 
-  Aineq_.resize(mEq + 2*mIneq, newN);
-  bineq_.resize(mEq + 2*mIneq);
-
-  Aineq_.block(0, 0, mIneq, n) = Aineq;
-  Aineq_.block(0, n, mIneq, mEq).setZero();
-  Aineq_.block(0, n + mEq, mIneq, mIneq).setIdentity();
-  Aineq_.block(mIneq, 0, mEq + mIneq, n).setZero();
-  Aineq_.block(mIneq, n, mEq + mIneq, mEq + mIneq).setIdentity();
-  bineq_.head(mIneq) = bineq;
-  bineq_.tail(mEq + mIneq).setZero();
-
-  x_.resize(newN);
-  x_.head(n) = x0;
-  x_.segment(n, mEq) = tmp_.head(mEq).array().abs();
-  tmp_.head(mIneq) = bineq;
-  tmp_.head(mIneq).noalias() -= Aineq*x0;
-  x_.segment(n + mEq, mIneq) = (tmp_.array() > 0)
-    .select(tmp_, VectorType::Zero(mIneq));
-
-  w_ = w0;
-  // add inequality constraints to the working set
-  for(Index i = 0; i < mIneq; ++i)
+  // Identify the violated equality constraints and add
+  // one z variable for each equality constraints violated.
+  Index zEq = 0;
+  for(Index i = 0; i < mEq; ++i)
   {
-    // the z_i value is 0 then the z_i >= 0 constraint is active
-    // in the other case then the a_i^t x_i > b_i constraint is active
-    if(x_(i + n + mEq) == 0.)
+    if(std::abs(tmp_(i)) > precision)
     {
-      w_.push_back(mIneq + i);
-    }
-    else
-    {
-      w_.push_back(i);
+      zEq += 1;
+      violEq_.push_back(i);
     }
   }
 
-  solver.solve(G_, c_, Aeq_, beq, Aineq_, bineq_, x_, w_, maxIter);
+  // Identify the violated inequality constraints and add
+  // one z variable for each inequality constraints violated.
+  // Also add violated inequality constraint to the initial working set.
+  // This should prevent adding linearly dependent constraint
+  // (except if a_i == a_j)
+  /// @todo in some case there no enough violated constraints to cover
+  /// the n variables
+  Index zIneq = 0;
+  for(Index i = mEq; i < mEq + mIneq; ++i)
+  {
+    if(tmp_(i) < precision)
+    {
+      zIneq += 1;
+      w_.push_back(i - mEq);
+    }
+  }
 
-  x_ = solver.x();
-  w_ = solver.w();
+  // if no violation, then the problem is feasible
+  if((zIneq + zEq) == 0)
+  {
+    x_ = x0;
+    return Exit::Success;
+  }
+
+  Index newN = n + zEq + zIneq;
+
+  // minimize z
+  c_.resize(newN);
+  c_.head(n).setZero();
+  c_.tail(newN - n).setOnes();
+  x_.resize(n);
+
+  Aeq_.resize(mEq, newN);
+  Aeq_.block(0, 0, mEq, n) = Aeq;
+  Aeq_.block(0, n, mEq, zEq + zIneq);
+  // set the z violation variable for all violated equality constraints
+  for(std::size_t i = 0; i < violEq_.size(); ++i)
+  {
+    Index row = violEq_[i];
+    Aeq_(row, n + i) = tmp_(i) > 0. ? -1. : 1.;
+  }
+
+  Aineq_.resize(mIneq + zEq + zIneq, newN);
+  bineq_.resize(mIneq + zEq + zIneq);
+
+  Aineq_.block(0, 0, mIneq, n) = Aineq;
+  Aineq_.block(0, n, mIneq, zEq + zIneq).setZero();
+  // set the z violation variable for all violated inequality constraints
+  for(std::size_t i = 0; i < w_.size(); ++i)
+  {
+    Index row = w_[i];
+    Aineq_(row, n + zEq + i) = 1.;
+  }
+  // set the z >= 0 constraints
+  Aineq_.block(mIneq, 0, zEq + zIneq, n).setZero();
+  Aineq_.block(mIneq, n, zEq + zIneq, zEq + zIneq).setIdentity();
+  bineq_.head(mIneq) = bineq;
+  bineq_.tail(zEq + zIneq).setZero();
+
+  // fill w_ with z constraints
+  for(Index i = 0; i < (zEq + zIneq) - (zIneq - n); ++i)
+  {
+    w_.push_back(mIneq + i);
+  }
+
+  eigen_assert(Index(w_.size()) == newN);
+
+  Exit status = Exit(solver_.solve(c_, Aeq_, beq, Aineq_, bineq_, w_, maxIter));
+
+  if(status == Exit::Success)
+  {
+    if(c_.dot(solver_.x()) > precision)
+    {
+      return Exit::Infeasible;
+    }
+
+    x_ = solver_.x().head(n);
+    // only keep active constraints in Aineq
+    w_.clear();
+    for(Index i: solver_.w())
+    {
+      if(i < mIneq)
+      {
+        w_.push_back(i);
+      }
+    }
+  }
+
+  return status;
 }
 
 }

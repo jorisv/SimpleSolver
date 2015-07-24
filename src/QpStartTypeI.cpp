@@ -15,6 +15,7 @@
 
 // associated header
 #include "QpStartTypeI.h"
+#include "QpNs.h"
 
 namespace Eigen
 {
