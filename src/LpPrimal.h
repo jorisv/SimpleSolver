@@ -265,8 +265,6 @@ LpPrimal<MatrixType, LType>::solve(
     // a_i^{T} d = 0, with i in w\leavingIndex
     // a_i^{T} d = 1, with i = leavingIndex
     // So it's the leavingIndex column of the Aw^{-1} matrix
-    // d_ = luAw_.inverse().col(mEq + blockingInW);
-    // @TODO is that better than using directly the inverse matrix ?
     d_ = luAw_.solve(VectorXd::Unit(n, mEq + blockingInW));
 
     logger_.setD(d_);
