@@ -282,7 +282,7 @@ inline void QpNullSpace<MatrixType, LType>::solve(
         eqQpNs_.solveLambda(gw_);
         logger_.setLambda(eqQpNs_.lambda());
 
-        if((eqQpNs_.lambda().tail(m - mEq).array() > Scalar(0.)).all())
+        if((eqQpNs_.lambda().tail(m - mEq).array() >= Scalar(0.)).all())
         {
           return;
         }
