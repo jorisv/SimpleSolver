@@ -15,20 +15,11 @@
 
 #pragma once
 
-// includes
-// Eigen
-#include <Eigen/Core>
-#include <Eigen/Cholesky>
-#include <Eigen/QR>
-
-// SimpleSolver
-#include "Macros.h"
-
 
 namespace Eigen
 {
 
-namespace qp
+namespace simple_solver
 {
 
 

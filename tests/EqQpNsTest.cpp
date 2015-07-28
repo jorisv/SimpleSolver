@@ -28,7 +28,7 @@
 #include <Eigen/QR>
 
 // SimpleSolver
-#include "EqQpNs.h"
+#include "SimpleSolver"
 
 
 using namespace Eigen;
@@ -82,7 +82,7 @@ BOOST_AUTO_TEST_CASE(EqQpNsTest)
   x << 2., -1., 1.;
   lambda << 3., -2.;
 
-  qp::EqQpNullSpace<MatrixXd> eqQpNs(3, 2);
+  simple_solver::EqQpNullSpace<MatrixXd> eqQpNs(3, 2);
   eqQpNs.compute(G, A);
   eqQpNs.solve(c, b);
 
@@ -90,9 +90,9 @@ BOOST_AUTO_TEST_CASE(EqQpNsTest)
   BOOST_CHECK((lambda - eqQpNs.lambda()).isZero(1e-8));
 
   const double lagrangian = -3.5;
-  BOOST_CHECK_SMALL(qp::eqQpLagrangian(G, c, A, b, eqQpNs.x(), eqQpNs.lambda())
+  BOOST_CHECK_SMALL(simple_solver::eqQpLagrangian(G, c, A, b, eqQpNs.x(), eqQpNs.lambda())
     - lagrangian, 1e-8);
-  BOOST_CHECK(qp::eqQpLagrangianGrad(G, c, A, eqQpNs.x(), eqQpNs.lambda())
+  BOOST_CHECK(simple_solver::eqQpLagrangianGrad(G, c, A, eqQpNs.x(), eqQpNs.lambda())
     .isZero(1e-8));
 }
 
@@ -117,7 +117,7 @@ BOOST_AUTO_TEST_CASE(EqQpNsSemiPosDefTest)
   x << 3., 0., 0.;
   lambda << -5., -3.;
 
-  qp::EqQpNullSpace<MatrixXd> eqQpNs(3, 2);
+  simple_solver::EqQpNullSpace<MatrixXd> eqQpNs(3, 2);
   eqQpNs.compute(G, A);
   eqQpNs.solve(c, b);
 
@@ -125,10 +125,10 @@ BOOST_AUTO_TEST_CASE(EqQpNsSemiPosDefTest)
   BOOST_CHECK((lambda - eqQpNs.lambda()).isZero(1e-8));
 
   const double lagrangian = -19.5;
-  BOOST_CHECK_SMALL(qp::eqQpLagrangian(G, c, A, b, eqQpNs.x(), eqQpNs.lambda())
+  BOOST_CHECK_SMALL(simple_solver::eqQpLagrangian(G, c, A, b, eqQpNs.x(), eqQpNs.lambda())
     - lagrangian, 1e-8);
   // third row is not canceled because is associated with
   // the positive semi-definite part of G
-  BOOST_CHECK(qp::eqQpLagrangianGrad(G, c, A, eqQpNs.x(), eqQpNs.lambda())
+  BOOST_CHECK(simple_solver::eqQpLagrangianGrad(G, c, A, eqQpNs.x(), eqQpNs.lambda())
     .head(2).isZero(1e-8));
 }

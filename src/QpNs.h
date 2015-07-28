@@ -15,23 +15,12 @@
 
 #pragma once
 
-// includes
-// Eigen
-#include <Eigen/Core>
-#include <Eigen/Cholesky>
-
-// SimpleSolver
-#include "EqQpNs.h"
-#include "Macros.h"
-
 
 namespace Eigen
 {
 
-namespace qp
+namespace simple_solver
 {
-
-enum struct LoggerType { Dummy, Full };
 
 
 template <LoggerType Type>

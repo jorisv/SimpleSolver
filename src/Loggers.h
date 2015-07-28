@@ -15,6 +15,15 @@
 
 #pragma once
 
-// includes
-// SimpleSolver
-#include "LpPrimal.h"
+
+namespace Eigen
+{
+
+namespace simple_solver
+{
+
+enum struct LoggerType { Dummy, Full };
+
+}
+
+}

@@ -15,22 +15,12 @@
 
 #pragma once
 
-// includes
-// Eigen
-#include <Eigen/Core>
-#include <Eigen/LU>
-
-// SimpleSolver
-#include "Macros.h"
-
 
 namespace Eigen
 {
 
-namespace lp
+namespace simple_solver
 {
-
-enum struct LoggerType { Dummy, Full };
 
 
 template <LoggerType Type>

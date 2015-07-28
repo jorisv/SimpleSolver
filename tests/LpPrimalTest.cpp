@@ -27,7 +27,7 @@
 #include <Eigen/QR>
 
 // SimpleSolver
-#include "Lp.h"
+#include "SimpleSolver"
 
 
 using namespace Eigen;
@@ -49,7 +49,7 @@ BOOST_AUTO_TEST_CASE(LpPrimalTest1)
   bineq << 4., -10., -11., -23., 4.;
   x << 4., 3.;
 
-  typedef lp::LpPrimal<MatrixXd, lp::LoggerType::Full> LpSolver;
+  typedef simple_solver::LpPrimal<MatrixXd, simple_solver::LoggerType::Full> LpSolver;
   LpSolver lp{2, 0, 5};
   BOOST_CHECK(lp.solve(c, Aeq, beq, Aineq, bineq, {0, 4}) ==
     LpSolver::Exit::Success);
@@ -101,7 +101,7 @@ BOOST_AUTO_TEST_CASE(LpPrimalTest2)
   c << -0., -1.;
   x << 4./5., 9./5.;
 
-  typedef lp::LpPrimal<MatrixXd, lp::LoggerType::Full> LpSolver;
+  typedef simple_solver::LpPrimal<MatrixXd, simple_solver::LoggerType::Full> LpSolver;
   LpSolver lp{2, 0, 4};
   BOOST_CHECK(lp.solve(c, Aeq, beq, Aineq, bineq, {0, 1}) ==
     LpSolver::Exit::Success);

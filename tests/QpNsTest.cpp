@@ -27,7 +27,7 @@
 #include <Eigen/QR>
 
 // SimpleSolver
-#include "Qp.h"
+#include "SimpleSolver"
 
 
 using namespace Eigen;
@@ -49,7 +49,7 @@ BOOST_AUTO_TEST_CASE(QpNsTest)
 
   x << 2., -1., 1.;
 
-  qp::QpNullSpace<MatrixXd, qp::LoggerType::Full> qpNs{3, 2, 0};
+  simple_solver::QpNullSpace<MatrixXd, simple_solver::LoggerType::Full> qpNs{3, 2, 0};
   qpNs.solve(G, c, Aeq, beq, Aineq, bineq, x, {});
 
   BOOST_CHECK((x - qpNs.x()).isZero(1e-8));
@@ -78,7 +78,7 @@ BOOST_AUTO_TEST_CASE(QpNsTest1)
   x << 1.4, 1.7;
   x0 << 2., 0.;
 
-  typedef qp::QpNullSpace<MatrixXd, qp::LoggerType::Full> Solver;
+  typedef simple_solver::QpNullSpace<MatrixXd, simple_solver::LoggerType::Full> Solver;
 
   Solver qpNs{2, 0, 5};
   qpNs.solve(G, c, Aeq, beq, Aineq, bineq, x0, {2, 4});
@@ -160,8 +160,8 @@ BOOST_AUTO_TEST_CASE(QpStartTypeITest)
   x0_2 << 0.1, -.5; // 1 constraints violated
   x0_3 << 0., -2.; // 3 constraints violated
 
-  typedef qp::QpNullSpace<MatrixXd, qp::LoggerType::Full> Solver;
-  typedef qp::QpStartTypeI<Solver> SolverStart;
+  typedef simple_solver::QpNullSpace<MatrixXd, simple_solver::LoggerType::Full> Solver;
+  typedef simple_solver::QpStartTypeI<Solver> SolverStart;
 
   Solver qpNs{2, 0, 5};
   SolverStart qpNsStart{2, 0, 5};

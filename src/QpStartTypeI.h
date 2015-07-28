@@ -15,15 +15,11 @@
 
 #pragma once
 
-// includes
-// SimpleSolver
-#include "LpPrimal.h"
-
 
 namespace Eigen
 {
 
-namespace qp
+namespace simple_solver
 {
 
 template <typename QpType>
@@ -43,7 +39,7 @@ public:
   typedef Matrix<Scalar, Dynamic, Dynamic, Options> MatrixType;
   typedef Matrix<Scalar, Dynamic, 1, Options> VectorType;
 
-  typedef lp::LpPrimal<MatrixType> SolverType;
+  typedef LpPrimal<MatrixType> SolverType;
 
   enum struct Exit {
     Success=SolverType::Exit::Success,

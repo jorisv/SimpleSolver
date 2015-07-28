@@ -14,12 +14,12 @@
 // along with SimpleSolver.  If not, see <http://www.gnu.org/licenses/>.
 
 // associated header
-#include "LpPrimal.h"
+#include "SimpleSolver"
 
 namespace Eigen
 {
 
-namespace lp
+namespace simple_solver
 {
 
 template class LpPrimal<MatrixXd>;

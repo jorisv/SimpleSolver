@@ -14,12 +14,12 @@
 // along with SimpleSolver.  If not, see <http://www.gnu.org/licenses/>.
 
 // associated header
-#include "QpNs.h"
+#include "SimpleSolver"
 
 namespace Eigen
 {
 
-namespace qp
+namespace simple_solver
 {
 
 template class QpNullSpace<MatrixXd>;
