@@ -15,6 +15,7 @@ macro(addUnitTest name)
   endif()
 endmacro(addUnitTest)
 
+addUnitTest("StdConstraintsTest")
 addUnitTest("EqQpNsTest")
 addUnitTest("QpNsTest")
 addUnitTest("LpPrimalTest")

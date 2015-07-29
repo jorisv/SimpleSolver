@@ -13,25 +13,17 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with SimpleSolver.  If not, see <http://www.gnu.org/licenses/>.
 
-#pragma once
+// associated header
+#include "SimpleSolver"
 
-// includes
-// std
-#include <vector>
-#include <unordered_map>
+namespace Eigen
+{
 
-// Eigen
-#include <Eigen/Core>
-#include <Eigen/Cholesky>
-#include <Eigen/QR>
-#include <Eigen/LU>
+namespace simple_solver
+{
 
-// SimpleSolver
-#include "Macros.h"
-#include "Loggers.h"
+template class StdConstraints<MatrixXd>;
 
-#include "StdConstraints.h"
-#include "EqQpNs.h"
-#include "LpPrimal.h"
-#include "QpNs.h"
-#include "QpStartTypeI.h"
+}
+
+}

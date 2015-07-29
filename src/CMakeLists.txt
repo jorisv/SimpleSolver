@@ -1,5 +1,5 @@
-set(SOURCES EqQpNs.cpp QpNs.cpp QpStartTypeI.cpp LpPrimal.cpp)
-set(HEADERS EqQpNs.h QpNs.h Qp.h QpStartTypeI.h LpPrimal.h SimpleSolver)
+set(SOURCES EqQpNs.cpp QpNs.cpp QpStartTypeI.cpp LpPrimal.cpp StdConstraints.cpp)
+set(HEADERS EqQpNs.h QpNs.h Qp.h QpStartTypeI.h LpPrimal.h StdConstraints.h SimpleSolver)
 
 search_for_eigen()
 
