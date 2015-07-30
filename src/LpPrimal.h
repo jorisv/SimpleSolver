@@ -115,6 +115,11 @@ public:
   LpPrimal();
   LpPrimal(Index n, Index mEq, Index mIneq);
 
+  template <typename Rhs1>
+  Exit solve(const MatrixBase<Rhs1>& c,
+    const StdConstraints<MatrixType>& constrs,
+    int maxIter=NumTraits<int>::highest());
+
   template <typename Rhs1, typename Rhs2, typename Rhs3>
   Exit solve(const MatrixBase<Rhs1>& c,
     const MatrixType& Aeq, const MatrixBase<Rhs2>& beq,
@@ -179,6 +184,18 @@ inline LpPrimal<MatrixType, LType>::LpPrimal(Index n, Index mEq, Index mIneq)
 {
   static_cast<void>(mEq);
   static_cast<void>(mIneq);
+}
+
+
+template <typename MatrixType, LoggerType LType>
+template <typename Rhs1>
+inline typename LpPrimal<MatrixType, LType>::Exit
+LpPrimal<MatrixType, LType>::solve(
+  const MatrixBase<Rhs1>& c, const StdConstraints<MatrixType>& constrs,
+  int maxIter)
+{
+  return solve(c, constrs.Aeq(), constrs.beq(),
+    constrs.Aineq(), constrs.bineq(), constrs.solverW(), maxIter);
 }
 
 

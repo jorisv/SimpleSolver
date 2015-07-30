@@ -52,6 +52,10 @@ public:
   QpStartTypeI();
   QpStartTypeI(Index n, Index mEq, Index mIneq);
 
+  Exit findInit(const StdConstraints<MatrixType>& constrs,
+    const VectorType& x0, Scalar precision,
+    int maxIter=NumTraits<int>::highest());
+
   template <typename Rhs1, typename Rhs2>
   Exit findInit(const MatrixType& Aeq, const MatrixBase<Rhs1>& beq,
     const MatrixType& Aineq, const MatrixBase<Rhs2>& bineq,
@@ -94,6 +98,18 @@ inline QpStartTypeI<QpType>::QpStartTypeI(Index n, Index mEq, Index mIneq)
   , x_{n + mEq + mIneq}
   , tmp_{mEq + mIneq}
 {}
+
+
+template <typename QpType>
+typename QpStartTypeI<QpType>::Exit QpStartTypeI<QpType>::findInit(
+  const StdConstraints<MatrixType>& constrs,
+  const QpStartTypeI<QpType>::VectorType& x0,
+  Scalar precision,
+  int maxIter)
+{
+  return findInit(constrs.Aeq(), constrs.beq(),
+    constrs.Aineq(), constrs.bineq(), x0, precision, maxIter);
+}
 
 
 template <typename QpType>

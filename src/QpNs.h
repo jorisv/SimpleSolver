@@ -120,6 +120,12 @@ public:
   QpNullSpace();
   QpNullSpace(Index n, Index mEq, Index mIneq);
 
+
+  template <typename Rhs1>
+  void solve(const MatrixType& G, const MatrixBase<Rhs1>& c,
+    const StdConstraints<MatrixType>& constraints,
+    const XVectorType& x0, int maxIter=NumTraits<int>::highest());
+
   template <typename Rhs1, typename Rhs2, typename Rhs3>
   void solve(const MatrixType& G, const MatrixBase<Rhs1>& c,
     const MatrixType& Aeq, const MatrixBase<Rhs2>& beq,
@@ -184,6 +190,19 @@ inline QpNullSpace<MatrixType, LType>::QpNullSpace(Index n, Index mEq, Index mIn
   , x_{n}
   , p_{n}
 {}
+
+
+template <typename MatrixType, LoggerType LType>
+template <typename Rhs1>
+inline void QpNullSpace<MatrixType, LType>::solve(
+  const MatrixType& G, const MatrixBase<Rhs1>& c,
+  const StdConstraints<MatrixType>& constraints,
+  const XVectorType& x0, int maxIter)
+{
+  solve(G, c, constraints.Aeq(), constraints.beq(),
+    constraints.Aineq(), constraints.bineq(), x0,
+    constraints.solverW(), maxIter);
+}
 
 
 template <typename MatrixType, LoggerType LType>

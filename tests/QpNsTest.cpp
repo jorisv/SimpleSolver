@@ -60,20 +60,34 @@ BOOST_AUTO_TEST_CASE(QpNsTest)
 
 BOOST_AUTO_TEST_CASE(QpNsTest1)
 {
-  MatrixXd G{2,2}, Aeq{0,2}, Aineq{5,2};
-  VectorXd c{2}, beq{0, 1}, bineq{5, 1};
+  MatrixXd G{2,2};
+  VectorXd c{2};
   VectorXd x{2}, x0{2};
+
+  const double inf = std::numeric_limits<double>::infinity();
+  typedef simple_solver::StdConstraints<MatrixXd> Constraints;
+  Constraints constrs{2, 0, 4};
 
   G << 2., 0.,
        0., 2.;
-  Aineq << 1., -2.,
-           -1., -2.,
-           -1, 2.,
-           1., 0.,
-           0., 1.;
-
   c << -2., -5.;
-  bineq << -2., -6., -2., 0., 0.;
+
+  constrs.Agineq() << 1., -2.,
+                     -1., -2.,
+                      1., 0.,
+                      0., 1.;
+  constrs.Agl() << -2., -6, 0., 0.;
+  constrs.Agu() << 2., inf, inf, inf;
+  constrs.userW() = {
+    {0, Constraints::StdWIndex::Type::Upper},
+    {3, Constraints::StdWIndex::Type::Lower}
+  };
+
+  constrs.buildIneq();
+  constrs.buildSolverW(constrs.userW());
+
+  BOOST_CHECK_EQUAL(constrs.Aineq().rows(), 5);
+  BOOST_CHECK_EQUAL(constrs.solverW().size(), 2);
 
   x << 1.4, 1.7;
   x0 << 2., 0.;
@@ -81,7 +95,7 @@ BOOST_AUTO_TEST_CASE(QpNsTest1)
   typedef simple_solver::QpNullSpace<MatrixXd, simple_solver::LoggerType::Full> Solver;
 
   Solver qpNs{2, 0, 5};
-  qpNs.solve(G, c, Aeq, beq, Aineq, bineq, x0, {2, 4});
+  qpNs.solve(G, c, constrs, x0);
 
   BOOST_CHECK((x - qpNs.x()).isZero(1e-8));
   const Solver::Logger& logger = qpNs.logger();
@@ -94,7 +108,8 @@ BOOST_AUTO_TEST_CASE(QpNsTest1)
   BOOST_CHECK(logger.datas[0].p.isZero(1e-8));
   BOOST_CHECK_SMALL((logger.datas[0].lambda - lambda0).norm(), 1e-8);
   BOOST_CHECK_EQUAL(logger.datas[0].iterType, Solver::Logger::RemoveW);
-  BOOST_CHECK_EQUAL(logger.datas[0].iterW, 2);
+  BOOST_CHECK_EQUAL(logger.datas[0].iterW,
+    (constrs.userWToSolverW().at({0, Constraints::StdWIndex::Type::Upper})));
 
   // iter 1
   VectorXd p1{2};
@@ -110,14 +125,16 @@ BOOST_AUTO_TEST_CASE(QpNsTest1)
   BOOST_CHECK_SMALL((logger.datas[2].x - x2).norm(), 1e-8);
   BOOST_CHECK_SMALL((logger.datas[2].lambda - lambda2).norm(), 1e-8);
   BOOST_CHECK_EQUAL(logger.datas[2].iterType, Solver::Logger::RemoveW);
-  BOOST_CHECK_EQUAL(logger.datas[2].iterW, 4);
+  BOOST_CHECK_EQUAL(logger.datas[2].iterW,
+    (constrs.userWToSolverW().at({3, Constraints::StdWIndex::Type::Lower})));
 
   // iter 3
   VectorXd p3{2};
   p3 << 0., 2.5;
   BOOST_CHECK_SMALL((logger.datas[3].p - p3).norm(), 1e-8);
   BOOST_CHECK_EQUAL(logger.datas[3].iterType, Solver::Logger::AddW);
-  BOOST_CHECK_EQUAL(logger.datas[3].iterW, 0);
+  BOOST_CHECK_EQUAL(logger.datas[3].iterW,
+    (constrs.userWToSolverW().at({0, Constraints::StdWIndex::Type::Lower})));
 
   // iter 4
   VectorXd x4{2}, p4{2};
@@ -140,20 +157,26 @@ BOOST_AUTO_TEST_CASE(QpNsTest1)
 
 BOOST_AUTO_TEST_CASE(QpStartTypeITest)
 {
-  MatrixXd G{2,2}, Aeq{0,2}, Aineq{5,2};
-  VectorXd c{2}, beq{0, 1}, bineq{5, 1};
+  MatrixXd G{2,2};
+  VectorXd c{2};
   VectorXd x{2}, x0_1{2}, x0_2{2}, x0_3{2};
+
+  const double inf = std::numeric_limits<double>::infinity();
+  typedef simple_solver::StdConstraints<MatrixXd> Constraints;
+  Constraints constrs{2, 0, 4};
 
   G << 2., 0.,
        0., 2.;
-  Aineq << 1., -2.,
-           -1., -2.,
-           -1, 2.,
-           1., 0.,
-           0., 1.;
-
   c << -2., -5.;
-  bineq << -2., -6., -2., 0., 0.;
+
+  constrs.Agineq() << 1., -2.,
+                     -1., -2.,
+                      1., 0.,
+                      0., 1.;
+  constrs.Agl() << -2., -6, 0., 0.;
+  constrs.Agu() << 2., inf, inf, inf;
+
+  constrs.buildIneq();
 
   x << 1.4, 1.7;
   x0_1 << -1., -1.; // 2 constraints violated
@@ -166,29 +189,31 @@ BOOST_AUTO_TEST_CASE(QpStartTypeITest)
   Solver qpNs{2, 0, 5};
   SolverStart qpNsStart{2, 0, 5};
 
-  BOOST_CHECK(qpNsStart.findInit(Aeq, beq, Aineq, bineq, x0_1, 1e-8) ==
+  BOOST_CHECK(qpNsStart.findInit(constrs, x0_1, 1e-8) ==
     SolverStart::Exit::Success);
   std::cout << qpNsStart.x().transpose() << "\n";
   for(auto i: qpNsStart.w()) std::cout << i << " ";
   std::cout << "\n";
 
-  qpNs.solve(G, c, Aeq, beq, Aineq, bineq, qpNsStart.x(), qpNsStart.w());
+  constrs.solverW() = qpNsStart.w();
+  qpNs.solve(G, c, constrs, qpNsStart.x());
   BOOST_CHECK((x - qpNs.x()).isZero(1e-8));
 
   /*
-  BOOST_CHECK(qpNsStart.findInit(Aeq, beq, Aineq, bineq, x0_2, 1e-8) ==
+  BOOST_CHECK(qpNsStart.findInit(constrs, x0_2, 1e-8) ==
     SolverStart::Exit::Success);
   std::cout << qpNsStart.x().transpose() << "\n";
   for(auto i: qpNsStart.w()) std::cout << i << " ";
   std::cout << "\n";
   */
 
-  BOOST_CHECK(qpNsStart.findInit(Aeq, beq, Aineq, bineq, x0_3, 1e-8) ==
+  BOOST_CHECK(qpNsStart.findInit(constrs, x0_3, 1e-8) ==
     SolverStart::Exit::Success);
   std::cout << qpNsStart.x().transpose() << "\n";
   for(auto i: qpNsStart.w()) std::cout << i << " ";
   std::cout << "\n";
 
-  qpNs.solve(G, c, Aeq, beq, Aineq, bineq, qpNsStart.x(), qpNsStart.w());
+  constrs.solverW() = qpNsStart.w();
+  qpNs.solve(G, c, constrs, qpNsStart.x());
   BOOST_CHECK((x - qpNs.x()).isZero(1e-8));
 }

@@ -76,6 +76,10 @@ public:
     }
   };
 
+  typedef std::unordered_map<Index, StdWIndex> SolverWToUserWType;
+  typedef std::unordered_map<StdWIndex, Index, StdWIndexHasher>
+    UserWToSolverWType;
+
 public:
   StdConstraints();
   StdConstraints(Index n, Index mEq, Index mGIneq);
@@ -95,6 +99,21 @@ public:
   const std::vector<Index>& solverW() const
   {
     return solverW_;
+  }
+
+  std::vector<Index>& solverW()
+  {
+    return solverW_;
+  }
+
+  const SolverWToUserWType& solverWToUserW() const
+  {
+    return solverWToUserW_;
+  }
+
+  const UserWToSolverWType& userWToSolverW() const
+  {
+    return userWToSolverW_;
   }
 
   const MatrixType& Aeq() const
@@ -165,8 +184,8 @@ public:
 private:
   std::vector<StdWIndex> userW_;
   std::vector<Index> solverW_;
-  std::unordered_map<Index, StdWIndex> solverWToUserW_;
-  std::unordered_map<StdWIndex, Index, StdWIndexHasher> userWToSolverW_;
+  SolverWToUserWType solverWToUserW_;
+  UserWToSolverWType userWToSolverW_;
 
   MatrixType Aeq_, Agineq_;
   VectorType beq_, Agl_, Agu_;

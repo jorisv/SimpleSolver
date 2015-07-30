@@ -88,23 +88,33 @@ BOOST_AUTO_TEST_CASE(LpPrimalTest1)
 
 BOOST_AUTO_TEST_CASE(LpPrimalTest2)
 {
-  MatrixXd Aeq{0,2}, Aineq{4,2};
-  VectorXd c{2}, beq{0, 1}, bineq{4, 1};
+  VectorXd c{2};
   VectorXd x{2};
 
-  Aineq << 1., 0.,
-           0, 1,
-           1, -1,
-           -3./2., -1.;
+  const double inf = std::numeric_limits<double>::infinity();
+  typedef simple_solver::StdConstraints<MatrixXd> Constraints;
+  Constraints constrs{2, 0, 4};
 
-  bineq << 0., 0., -1., -3.;
+  constrs.Agineq() << 1., 0.,
+                      0, 1,
+                      1, -1,
+                     -3./2., -1.;
+
+  constrs.Agl() << 0., 0., -1., -3.;
+  constrs.Agu() << inf, inf, inf, inf;
+  constrs.userW() = {
+    {0, Constraints::StdWIndex::Type::Lower},
+    {1, Constraints::StdWIndex::Type::Lower}};
+
+  constrs.buildIneq();
+  constrs.buildSolverW(constrs.userW());
+
   c << -0., -1.;
   x << 4./5., 9./5.;
 
   typedef simple_solver::LpPrimal<MatrixXd, simple_solver::LoggerType::Full> LpSolver;
   LpSolver lp{2, 0, 4};
-  BOOST_CHECK(lp.solve(c, Aeq, beq, Aineq, bineq, {0, 1}) ==
-    LpSolver::Exit::Success);
+  BOOST_CHECK(lp.solve(c, constrs) == LpSolver::Exit::Success);
 
   BOOST_CHECK((x - lp.x()).isZero(1e-8));
   BOOST_CHECK_EQUAL(lp.logger().datas.size(), 3);
