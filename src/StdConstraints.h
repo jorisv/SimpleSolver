@@ -56,6 +56,11 @@ public:
     {
       return (index == other.index) && (type == other.type);
     }
+
+    bool operator!=(const StdWIndex& other) const
+    {
+      return !this->operator==(other);
+    }
   };
 
   struct StdWIndexHasher
@@ -220,6 +225,9 @@ void StdConstraints<MatrixType>::buildIneq()
 
   Aineq_.resize(mIneq, Agineq_.cols());
   bineq_.resize(mIneq);
+
+  userWToSolverW_.clear();
+  solverWToUserW_.clear();
 
   mIneq = 0;
   for(Index i = 0; i < Agineq_.rows(); ++i)

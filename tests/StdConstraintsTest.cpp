@@ -32,9 +32,14 @@
 
 using namespace Eigen;
 
+
 BOOST_AUTO_TEST_CASE(StdConstaints)
 {
-  simple_solver::StdConstraints<MatrixXd> constrs(5, 2, 3);
+  typedef simple_solver::StdConstraints<MatrixXd> StdConstraintsType;
+  typedef StdConstraintsType::StdWIndex StdWIndex;
+  typedef StdConstraintsType::Index Index;
+
+  StdConstraintsType constrs(5, 2, 3);
 
   BOOST_CHECK_EQUAL(constrs.Aeq().rows(), 2);
   BOOST_CHECK_EQUAL(constrs.Aeq().cols(), 5);
@@ -71,4 +76,24 @@ BOOST_AUTO_TEST_CASE(StdConstaints)
   BOOST_CHECK_EQUAL(constrs.Agineq().row(1), -constrs.Aineq().row(1));
   BOOST_CHECK_EQUAL(constrs.Agineq().row(2), constrs.Aineq().row(2));
   BOOST_CHECK_EQUAL(constrs.Agineq().row(2), -constrs.Aineq().row(3));
+
+  std::vector<StdWIndex> userW =
+    {{0, StdWIndex::Type::Lower},
+     {1, StdWIndex::Type::Upper}};
+  std::vector<Index> solverW = {0, 1};
+
+  constrs.buildSolverW(userW);
+  constrs.buildUserW(solverW);
+
+  BOOST_CHECK_EQUAL(userW.size(), constrs.userW().size());
+  for(std::size_t i = 0; i < userW.size(); ++i)
+  {
+    BOOST_CHECK(userW[i] == constrs.userW()[i]);
+  }
+
+  BOOST_CHECK_EQUAL(solverW.size(), constrs.solverW().size());
+  for(std::size_t i = 0; i < solverW.size(); ++i)
+  {
+    BOOST_CHECK(solverW[i] == constrs.solverW()[i]);
+  }
 }
