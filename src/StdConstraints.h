@@ -262,7 +262,7 @@ void StdConstraints<MatrixType>::buildIneq()
     if(Agu_[i] != std::numeric_limits<Scalar>::infinity())
     {
       Aineq_.row(mIneq) = -Agineq_.row(i);
-      bineq_(mIneq) = -Agl_(i);
+      bineq_(mIneq) = -Agu_(i);
       userWToSolverW_[{i, StdWIndex::Type::Upper}] = mIneq;
       solverWToUserW_[mIneq] = {i, StdWIndex::Type::Upper};
       ++mIneq;
