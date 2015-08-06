@@ -159,7 +159,7 @@ BOOST_AUTO_TEST_CASE(QpStartTypeITest)
 {
   MatrixXd G{2,2};
   VectorXd c{2};
-  VectorXd x{2}, x0_1{2}, x0_2{2}, x0_3{2};
+  VectorXd x{2}, x0_1{2}, x0_2{2}, x0_3{2}, x0_4{2}, x0_5{2}, x0_6{2};
 
   const double inf = std::numeric_limits<double>::infinity();
   typedef simple_solver::StdConstraints<MatrixXd> Constraints;
@@ -179,9 +179,12 @@ BOOST_AUTO_TEST_CASE(QpStartTypeITest)
   constrs.buildIneq();
 
   x << 1.4, 1.7;
-  x0_1 << -1., -1.; // 2 constraints violated
-  x0_2 << 0.1, -.5; // 1 constraints violated
-  x0_3 << 0., -2.; // 3 constraints violated
+  x0_1 << -1., -1.; // a3(L) and a4(L) violated
+  x0_2 << 0.1, -.5; // a4(L) violated
+  x0_3 << 0., -2.; // a1(U), a3(L), a4(L) violated
+  x0_4 << 5., -1.; // a1(U), a4(L) violated
+  x0_5 << 5., 1.; // a1(U), a2(L) violated
+  x0_6 << 2., 3.; // a1(L), a2(L) violated
 
   typedef simple_solver::QpNullSpace<MatrixXd, simple_solver::LoggerType::Full> Solver;
   typedef simple_solver::QpStartTypeI<Solver> SolverStart;
@@ -189,31 +192,24 @@ BOOST_AUTO_TEST_CASE(QpStartTypeITest)
   Solver qpNs{2, 0, 5};
   SolverStart qpNsStart{2, 0, 5};
 
-  BOOST_CHECK(qpNsStart.findInit(constrs, x0_1, 1e-8) ==
-    SolverStart::Exit::Success);
-  std::cout << qpNsStart.x().transpose() << "\n";
-  for(auto i: qpNsStart.w()) std::cout << i << " ";
-  std::cout << "\n";
+  auto check = [&qpNsStart, &constrs, &qpNs, &G, &c, &x](const VectorXd& x0)
+  {
+    BOOST_CHECK(qpNsStart.findInit(constrs, x0, 1e-8) ==
+      SolverStart::Exit::Success);
+    std::cout << "x: " << qpNsStart.x().transpose() << "\n";
+    for(auto i: qpNsStart.w()) std::cout << i << " ";
+    std::cout << "\n\n";
+    constrs.solverW() = qpNsStart.w();
+    qpNs.solve(G, c, constrs, qpNsStart.x());
+    BOOST_CHECK((x - qpNs.x()).isZero(1e-8));
+  };
 
-  constrs.solverW() = qpNsStart.w();
-  qpNs.solve(G, c, constrs, qpNsStart.x());
-  BOOST_CHECK((x - qpNs.x()).isZero(1e-8));
-
+  check(x0_1);
+  check(x0_2);
+  check(x0_3);
   /*
-  BOOST_CHECK(qpNsStart.findInit(constrs, x0_2, 1e-8) ==
-    SolverStart::Exit::Success);
-  std::cout << qpNsStart.x().transpose() << "\n";
-  for(auto i: qpNsStart.w()) std::cout << i << " ";
-  std::cout << "\n";
+  check(x0_4);
+  check(x0_5);
+  check(x0_6);
   */
-
-  BOOST_CHECK(qpNsStart.findInit(constrs, x0_3, 1e-8) ==
-    SolverStart::Exit::Success);
-  std::cout << qpNsStart.x().transpose() << "\n";
-  for(auto i: qpNsStart.w()) std::cout << i << " ";
-  std::cout << "\n";
-
-  constrs.solverW() = qpNsStart.w();
-  qpNs.solve(G, c, constrs, qpNsStart.x());
-  BOOST_CHECK((x - qpNs.x()).isZero(1e-8));
 }

@@ -48,17 +48,14 @@ public:
     Infeasible
   };
 
+  typedef StdConstraints<MatrixType> StdConstraintsType;
+  typedef typename StdConstraintsType::StdWIndex StdWIndex;
+
 public:
   QpStartTypeI();
   QpStartTypeI(Index n, Index mEq, Index mIneq);
 
-  Exit findInit(const StdConstraints<MatrixType>& constrs,
-    const VectorType& x0, Scalar precision,
-    int maxIter=NumTraits<int>::highest());
-
-  template <typename Rhs1, typename Rhs2>
-  Exit findInit(const MatrixType& Aeq, const MatrixBase<Rhs1>& beq,
-    const MatrixType& Aineq, const MatrixBase<Rhs2>& bineq,
+  Exit findInit(const StdConstraintsType& constrs,
     const VectorType& x0, Scalar precision,
     int maxIter=NumTraits<int>::highest());
 
@@ -75,7 +72,7 @@ public:
 private:
   SolverType solver_;
 
-  std::vector<Index> w_, violEq_;
+  std::vector<Index> w_;
   MatrixType Aeq_, Aineq_;
   VectorType c_, bineq_, x_;
   VectorType tmp_;
@@ -102,143 +99,125 @@ inline QpStartTypeI<QpType>::QpStartTypeI(Index n, Index mEq, Index mIneq)
 
 template <typename QpType>
 typename QpStartTypeI<QpType>::Exit QpStartTypeI<QpType>::findInit(
-  const StdConstraints<MatrixType>& constrs,
+  const StdConstraintsType& constrs,
   const QpStartTypeI<QpType>::VectorType& x0,
   Scalar precision,
   int maxIter)
 {
-  return findInit(constrs.Aeq(), constrs.beq(),
-    constrs.Aineq(), constrs.bineq(), x0, precision, maxIter);
-}
+  eigen_assert(constrs.Aeq().cols() == constrs.Aineq().cols());
+  eigen_assert(constrs.Aeq().rows() == constrs.beq().rows());
+  eigen_assert(constrs.Aineq().rows() == constrs.bineq().rows());
 
-
-template <typename QpType>
-template <typename Rhs1, typename Rhs2>
-typename QpStartTypeI<QpType>::Exit QpStartTypeI<QpType>::findInit(
-  const QpStartTypeI<QpType>::MatrixType& Aeq, const MatrixBase<Rhs1>& beq,
-  const QpStartTypeI<QpType>::MatrixType& Aineq, const MatrixBase<Rhs2>& bineq,
-  const QpStartTypeI<QpType>::VectorType& x0,
-  Scalar precision,
-  int maxIter)
-{
-  eigen_assert(Aeq.cols() == Aineq.cols());
-  eigen_assert(Aeq.rows() == beq.rows());
-  eigen_assert(Aineq.rows() == bineq.rows());
-
-  const Index n = Aeq.cols();
-  const Index mEq = Aeq.rows();
-  const Index mIneq = Aineq.rows();
+  const Index n = constrs.Aeq().cols();
+  const Index mEq = constrs.Aeq().rows();
+  const Index mIneq = constrs.Aineq().rows();
+  const Index newN = n + mEq + mIneq;
+  const Index newIneq = n + mEq + mIneq*3;
+  const Index zEqPos = n;
+  const Index zIneqPos = n + mEq;
 
   // clear the buffers
   w_.clear();
-  violEq_.clear();
 
   // compute constraint violation
   tmp_.resize(mEq + mIneq);
+  tmp_.head(mEq) = -constrs.beq();
+  tmp_.head(mEq).noalias() += constrs.Aeq()*x0;
+  tmp_.tail(mIneq) = -constrs.bineq();
+  tmp_.tail(mIneq).noalias() += constrs.Aineq()*x0;
 
-  tmp_.head(mEq) = -beq;
-  tmp_.head(mEq).noalias() += Aeq*x0;
-  tmp_.tail(mIneq) = -bineq;
-  tmp_.tail(mIneq).noalias() += Aineq*x0;
-
-  // Identify the violated equality constraints and add
-  // one z variable for each equality constraints violated.
-  Index zEq = 0;
-  for(Index i = 0; i < mEq; ++i)
-  {
-    if(std::abs(tmp_(i)) > precision)
-    {
-      zEq += 1;
-      violEq_.push_back(i);
-    }
-  }
-
-  // Identify the violated inequality constraints and add
-  // one z variable for each inequality constraints violated.
-  // Also add violated inequality constraint to the initial working set.
-  // This should prevent adding linearly dependent constraint
-  // (except if a_i == a_j)
-  /// @todo in some case there no enough violated constraints to cover
-  /// the n variables
-  Index zIneq = 0;
-  for(Index i = mEq; i < mEq + mIneq; ++i)
-  {
-    if(tmp_(i) < precision)
-    {
-      zIneq += 1;
-      w_.push_back(i - mEq);
-    }
-  }
-
-  eigen_assert((zIneq + mEq) >= n);
-
-  // if no violation, then the problem is feasible
-  if((zIneq + zEq) == 0)
+  if((tmp_.head(mEq).array().abs() >= precision).all() &&
+    (tmp_.tail(mIneq).array() >= precision).all())
   {
     x_ = x0;
+    w_.clear();
     return Exit::Success;
   }
 
-  Index newN = n + zEq + zIneq;
-
+  // fill the matrices
   // minimize z
   c_.resize(newN);
   c_.head(n).setZero();
   c_.tail(newN - n).setOnes();
   x_.resize(n);
 
+  //   x             zEq            zIneq
+  // [Aeq    -sign(Aeq*x0 - beq)      0]   == beq
   Aeq_.resize(mEq, newN);
-  Aeq_.block(0, 0, mEq, n) = Aeq;
-  Aeq_.block(0, n, mEq, zEq + zIneq);
-  // set the z violation variable for all violated equality constraints
-  for(std::size_t i = 0; i < violEq_.size(); ++i)
+  Aeq_.block(0, 0, mEq, n) = constrs.Aeq();
+  Aeq_.block(0, zEqPos, mEq, mEq) =
+    ((tmp_.head(mEq).array() >= 0.)
+     .select(-VectorType::Ones(mEq), VectorType::Ones(mEq))).asDiagonal();
+  Aeq_.block(0, zIneqPos, mEq, mIneq).setZero();
+
+  Aineq_.resize(newIneq, newN);
+  bineq_.resize(newIneq);
+
+  //   x             zEq            zIneq
+  // [Aineq           0               I]    >= bineq
+  // [0               I               0]    >= 0
+  // [0               0               I]    >= 0
+  // [I               0               0]    >= x0
+  // [0               0              -I]    >= max(bineq - Aineq*x0, 0)
+
+  // line 1
+  Aineq_.block(0, 0, mIneq, n) = constrs.Aineq();
+  Aineq_.block(0, zEqPos, mIneq, mEq).setZero();
+  Aineq_.block(0, zIneqPos, mIneq, mIneq).setIdentity();
+
+  // line 2-3
+  const Index ineqL2 = mIneq;
+  Aineq_.block(ineqL2, 0, mEq + mIneq, n).setZero();
+  Aineq_.block(ineqL2, zEqPos, mEq + mIneq, mEq + mIneq).setIdentity();
+
+  // line 4
+  const Index ineqL4 = ineqL2 + mEq + mIneq;
+  Aineq_.block(ineqL4, 0, n, n).setIdentity();
+  Aineq_.block(ineqL4, zEqPos, n, mEq + mIneq).setZero();
+
+  // line 5
+  const Index ineqL5 = ineqL4 + n;
+  Aineq_.block(ineqL5, 0, mIneq, n + mEq).setZero();
+  Aineq_.block(ineqL5, zIneqPos, mIneq, mIneq) =
+    -MatrixType::Identity(mIneq, mIneq);
+
+  bineq_.segment(0, mIneq) = constrs.bineq();
+  bineq_.segment(ineqL2, mEq + mIneq).setZero();
+  bineq_.segment(ineqL4, n) = x0;
+  bineq_.segment(ineqL5, mIneq) = (tmp_.tail(mIneq).array() <= 0.)
+    .select(tmp_.tail(mIneq), VectorType::Zero(mIneq));
+
+  // fill w_ with line 4 and 5
+  for(Index i = 0; i < n + mIneq; ++i)
   {
-    Index row = violEq_[i];
-    Aeq_(row, n + i) = tmp_(i) > 0. ? -1. : 1.;
+    w_.push_back(ineqL4 + i);
   }
 
-  Aineq_.resize(mIneq + zEq + zIneq, newN);
-  bineq_.resize(mIneq + zEq + zIneq);
+  eigen_assert(mEq + Index(w_.size()) == newN);
 
-  Aineq_.block(0, 0, mIneq, n) = Aineq;
-  Aineq_.block(0, n, mIneq, zEq + zIneq).setZero();
-  // set the z violation variable for all violated inequality constraints
-  for(std::size_t i = 0; i < w_.size(); ++i)
-  {
-    Index row = w_[i];
-    Aineq_(row, n + zEq + i) = 1.;
-  }
-  // set the z >= 0 constraints
-  Aineq_.block(mIneq, 0, zEq + zIneq, n).setZero();
-  Aineq_.block(mIneq, n, zEq + zIneq, zEq + zIneq).setIdentity();
-  bineq_.head(mIneq) = bineq;
-  bineq_.tail(zEq + zIneq).setZero();
-
-  // fill w_ with z constraints until w_ reach newN size
-  for(Index i = 0; i < (zEq + zIneq) - (zIneq - (n - mEq)); ++i)
-  {
-    w_.push_back(mIneq + i);
-  }
-
-  eigen_assert(Index(w_.size()) == newN);
-
-  Exit status = Exit(solver_.solve(c_, Aeq_, beq, Aineq_, bineq_, w_, maxIter));
+  Exit status = Exit(solver_.solve(c_, Aeq_, constrs.beq(), Aineq_, bineq_,
+    w_, maxIter, ineqL4));
 
   if(status == Exit::Success)
   {
-    if(c_.dot(solver_.x()) > precision)
+    // if [zEq zIneq] != 0 then the problem is probably infeasible
+    if((solver_.x().tail(mEq + mIneq).array().abs() > precision).any())
     {
       return Exit::Infeasible;
     }
 
     x_ = solver_.x().head(n);
-    // only keep active constraints in Aineq
+
+    // only keep the n first active constraints in Aineq
     w_.clear();
-    for(Index i: solver_.w())
+    for(std::size_t i = 0;
+        i < solver_.w().size() && w_.size() < std::size_t(n);
+        ++i)
     {
-      if(i < mIneq)
+      const Index wi = solver_.w()[i];
+      if(wi < mIneq)
       {
-        w_.push_back(i);
+        w_.push_back(wi);
       }
     }
   }
