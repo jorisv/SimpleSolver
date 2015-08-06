@@ -118,14 +118,16 @@ public:
   template <typename Rhs1>
   Exit solve(const MatrixBase<Rhs1>& c,
     const StdConstraints<MatrixType>& constrs,
-    int maxIter=NumTraits<int>::highest());
+    int maxIter=NumTraits<int>::highest(),
+    Index maxEnteringW=-1);
 
   template <typename Rhs1, typename Rhs2, typename Rhs3>
   Exit solve(const MatrixBase<Rhs1>& c,
     const MatrixType& Aeq, const MatrixBase<Rhs2>& beq,
     const MatrixType& Aineq, const MatrixBase<Rhs3>& bineq,
     const std::vector<Index>& w0,
-    int maxIter=NumTraits<int>::highest());
+    int maxIter=NumTraits<int>::highest(),
+    Index maxEnteringW=-1);
 
   const XVectorType& x() const
   {
@@ -149,9 +151,6 @@ private:
   void buildAwbw(Index mEq,
     const MatrixType& Aineq, const MatrixBase<Rhs1>& bineq,
     const std::vector<Index>& w);
-
-  void addToW(std::size_t index);
-  void removeToW(std::size_t index);
 
 public:
   /// workspace and negative of the workspace
@@ -192,10 +191,10 @@ template <typename Rhs1>
 inline typename LpPrimal<MatrixType, LType>::Exit
 LpPrimal<MatrixType, LType>::solve(
   const MatrixBase<Rhs1>& c, const StdConstraints<MatrixType>& constrs,
-  int maxIter)
+  int maxIter, Index maxEnteringW)
 {
   return solve(c, constrs.Aeq(), constrs.beq(),
-    constrs.Aineq(), constrs.bineq(), constrs.solverW(), maxIter);
+    constrs.Aineq(), constrs.bineq(), constrs.solverW(), maxIter, maxEnteringW);
 }
 
 
@@ -207,11 +206,16 @@ LpPrimal<MatrixType, LType>::solve(
   const MatrixType& Aeq, const MatrixBase<Rhs2>& beq,
   const MatrixType& Aineq, const MatrixBase<Rhs3>& bineq,
   const std::vector<LpPrimal<MatrixType, LType>::Index>& w0,
-  int maxIter)
+  int maxIter, Index maxEnteringW)
 {
   const Index n = c.rows();
   const Index mEq = Aeq.rows();
   const Index mInEq = Aineq.rows();
+
+  if(maxEnteringW == -1)
+  {
+    maxEnteringW = mInEq;
+  }
 
   eigen_assert(mEq + mInEq >= n);
   eigen_assert(int(w0.size()) == (n - mEq));
@@ -323,8 +327,15 @@ LpPrimal<MatrixType, LType>::solve(
     bw_(mEq + blockingInW) = bineq(enteringIndex);
     luAw_.compute(Aw_);
 
-    removeToW(std::size_t(blockingInW));
-    addToW(newConstrInWNeg);
+    if(leavingIndex < maxEnteringW)
+    {
+      wNeg_[newConstrInWNeg] = leavingIndex;
+    }
+    else
+    {
+      wNeg_.erase(wNeg_.begin() + newConstrInWNeg);
+    }
+    w_[blockingInW] = enteringIndex;
   }
 
   return Exit::MaxIter;
@@ -357,22 +368,6 @@ void LpPrimal<MatrixType, LType>::buildAwbw(Index mEq,
     Aw_.row(mEq + i) = Aineq.row(w[i]);
     bw_.row(mEq + i) = bineq.row(w[i]);
   }
-}
-
-
-template <typename MatrixType, LoggerType LType>
-inline void LpPrimal<MatrixType, LType>::addToW(std::size_t indexInWNeg)
-{
-  w_.push_back(wNeg_[indexInWNeg]);
-  wNeg_.erase(wNeg_.begin() + indexInWNeg);
-}
-
-
-template <typename MatrixType, LoggerType LType>
-inline void LpPrimal<MatrixType, LType>::removeToW(std::size_t indexInW)
-{
-  wNeg_.push_back(w_[indexInW]);
-  w_.erase(w_.begin() + indexInW);
 }
 
 }
