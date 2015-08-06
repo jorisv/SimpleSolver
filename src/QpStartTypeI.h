@@ -146,7 +146,7 @@ typename QpStartTypeI<QpType>::Exit QpStartTypeI<QpType>::findInit(
   Aeq_.resize(mEq, newN);
   Aeq_.block(0, 0, mEq, n) = constrs.Aeq();
   Aeq_.block(0, zEqPos, mEq, mEq) =
-    ((tmp_.head(mEq).array() >= 0.)
+    ((tmp_.head(mEq).array() >= Scalar(0.))
      .select(-VectorType::Ones(mEq), VectorType::Ones(mEq))).asDiagonal();
   Aeq_.block(0, zIneqPos, mEq, mIneq).setZero();
 
@@ -157,7 +157,7 @@ typename QpStartTypeI<QpType>::Exit QpStartTypeI<QpType>::findInit(
   // [Aineq           0               I]    >= bineq
   // [0               I               0]    >= 0
   // [0               0               I]    >= 0
-  // [I               0               0]    >= x0
+  // [M               0               0]    >= M*x0
   // [0               0              -I]    >= max(bineq - Aineq*x0, 0)
 
   // line 1
@@ -172,19 +172,40 @@ typename QpStartTypeI<QpType>::Exit QpStartTypeI<QpType>::findInit(
 
   // line 4
   const Index ineqL4 = ineqL2 + mEq + mIneq;
+  // compute the M diagonal matrix
+  // if the n_i variable is imply in the ineq_i violated constraint
+  // then the n_i variable can only move in the ineq_i constraint direction
+  // If no constraint are violated by the n_i variable we don't allow it
+  // to decrease
+  /// @TODO find if there is a better way...
   Aineq_.block(ineqL4, 0, n, n).setIdentity();
+  for(Index ni = 0; ni < n; ++ni)
+  {
+    for(Index ineqi = 0; ineqi < mIneq; ++ineqi)
+    {
+      Scalar val = constrs.Aineq()(ineqi, ni);
+      if(tmp_(mEq + ineqi) < Scalar(0.) && val != Scalar(0.))
+      {
+        Aineq_(ineqL4 + ni, ni) =
+          constrs.Aineq()(ineqi, ni) > Scalar(0.) ? Scalar(1.) : Scalar(-1.);
+        break;
+      }
+    }
+  }
   Aineq_.block(ineqL4, zEqPos, n, mEq + mIneq).setZero();
 
   // line 5
   const Index ineqL5 = ineqL4 + n;
   Aineq_.block(ineqL5, 0, mIneq, n + mEq).setZero();
+  // set to minus identity because we don't allow to increase zIneq
   Aineq_.block(ineqL5, zIneqPos, mIneq, mIneq) =
     -MatrixType::Identity(mIneq, mIneq);
 
   bineq_.segment(0, mIneq) = constrs.bineq();
   bineq_.segment(ineqL2, mEq + mIneq).setZero();
-  bineq_.segment(ineqL4, n) = x0;
-  bineq_.segment(ineqL5, mIneq) = (tmp_.tail(mIneq).array() <= 0.)
+  bineq_.segment(ineqL4, n) =
+    (Aineq_.block(ineqL4, 0, n, n).diagonal().array())*x0.array();
+  bineq_.segment(ineqL5, mIneq) = (tmp_.tail(mIneq).array() <= Scalar(0.))
     .select(tmp_.tail(mIneq), VectorType::Zero(mIneq));
 
   // fill w_ with line 4 and 5

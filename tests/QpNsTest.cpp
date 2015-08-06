@@ -155,11 +155,13 @@ BOOST_AUTO_TEST_CASE(QpNsTest1)
 }
 
 
-BOOST_AUTO_TEST_CASE(QpStartTypeITest)
+// test QpStartTypeI on the problem define p. 474 fig. 16.3
+// in numerical opitimization textboook.
+BOOST_AUTO_TEST_CASE(QpStartTypeITest1)
 {
   MatrixXd G{2,2};
   VectorXd c{2};
-  VectorXd x{2}, x0_1{2}, x0_2{2}, x0_3{2}, x0_4{2}, x0_5{2}, x0_6{2};
+  VectorXd x{2}, x0_1{2}, x0_2{2}, x0_3{2}, x0_4{2}, x0_5{2}, x0_6{2}, x0_7{2};
 
   const double inf = std::numeric_limits<double>::infinity();
   typedef simple_solver::StdConstraints<MatrixXd> Constraints;
@@ -185,6 +187,7 @@ BOOST_AUTO_TEST_CASE(QpStartTypeITest)
   x0_4 << 5., -1.; // a1(U), a4(L) violated
   x0_5 << 5., 1.; // a1(U), a2(L) violated
   x0_6 << 2., 3.; // a1(L), a2(L) violated
+  x0_7 << 2., 1.; // no violation
 
   typedef simple_solver::QpNullSpace<MatrixXd, simple_solver::LoggerType::Full> Solver;
   typedef simple_solver::QpStartTypeI<Solver> SolverStart;
@@ -196,9 +199,6 @@ BOOST_AUTO_TEST_CASE(QpStartTypeITest)
   {
     BOOST_CHECK(qpNsStart.findInit(constrs, x0, 1e-8) ==
       SolverStart::Exit::Success);
-    std::cout << "x: " << qpNsStart.x().transpose() << "\n";
-    for(auto i: qpNsStart.w()) std::cout << i << " ";
-    std::cout << "\n\n";
     constrs.solverW() = qpNsStart.w();
     qpNs.solve(G, c, constrs, qpNsStart.x());
     BOOST_CHECK((x - qpNs.x()).isZero(1e-8));
@@ -207,9 +207,66 @@ BOOST_AUTO_TEST_CASE(QpStartTypeITest)
   check(x0_1);
   check(x0_2);
   check(x0_3);
-  /*
   check(x0_4);
   check(x0_5);
   check(x0_6);
-  */
+  check(x0_7);
+}
+
+
+// mirror the previous problem on the x2 axis (not the objective fonction)
+BOOST_AUTO_TEST_CASE(QpStartTypeITest2)
+{
+  MatrixXd G{2,2};
+  VectorXd c{2};
+  VectorXd x{2}, x0_1{2}, x0_2{2}, x0_3{2}, x0_4{2}, x0_5{2}, x0_6{2}, x0_7{2};
+
+  const double inf = std::numeric_limits<double>::infinity();
+  typedef simple_solver::StdConstraints<MatrixXd> Constraints;
+  Constraints constrs{2, 0, 4};
+
+  G << 2., 0.,
+       0., 2.;
+  c << -2., -5.;
+
+  constrs.Agineq() << -1., -2.,
+                       1., -2.,
+                      -1.,  0.,
+                       0.,  1.;
+  constrs.Agl() << -2., -6, 0., 0.;
+  constrs.Agu() << 2., inf, inf, inf;
+
+  constrs.buildIneq();
+
+  x << 0., 1.;
+  x0_1 << 1., -1.; // a3(L) and a4(L) violated
+  x0_2 << -0.1, -.5; // a4(L) violated
+  x0_3 << -0., -2.; // a1(U), a3(L), a4(L) violated
+  x0_4 << -5., -1.; // a1(U), a4(L) violated
+  x0_5 << -5., 1.; // a1(U), a2(L) violated
+  x0_6 << -2., 3.; // a1(L), a2(L) violated
+  x0_7 << -2., 1.; // no violation
+
+  typedef simple_solver::QpNullSpace<MatrixXd, simple_solver::LoggerType::Full> Solver;
+  typedef simple_solver::QpStartTypeI<Solver> SolverStart;
+
+  Solver qpNs{2, 0, 5};
+  SolverStart qpNsStart{2, 0, 5};
+
+  auto check = [&qpNsStart, &constrs, &qpNs, &G, &c, &x](const VectorXd& x0)
+  {
+    BOOST_CHECK(qpNsStart.findInit(constrs, x0, 1e-8) ==
+      SolverStart::Exit::Success);
+    constrs.solverW() = qpNsStart.w();
+    qpNs.solve(G, c, constrs, qpNsStart.x());
+    BOOST_CHECK((x - qpNs.x()).isZero(1e-8));
+  };
+
+  check(x0_1);
+  check(x0_2);
+  check(x0_3);
+  check(x0_4);
+  check(x0_5);
+  check(x0_6);
+  check(x0_7);
 }
